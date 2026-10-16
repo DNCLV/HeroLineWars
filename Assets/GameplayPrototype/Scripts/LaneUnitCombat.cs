@@ -17,6 +17,8 @@ public sealed class LaneUnitCombat : MonoBehaviour
     [Min(.1f)] public float modelScale = 1f;
     public float modelYawOffset;
     [Range(0, 1)] public int assignedLane;
+    [Tooltip("Deterministic lateral formation offset inside the assigned physical road.")]
+    public float laneOffsetX;
     [Tooltip("Stationary defenders can fight but never advance toward a base.")]
     public bool stationaryDefender;
     [Tooltip("Disable for the player hero, whose existing HeroAutoAttack owns attacks.")]
@@ -66,6 +68,13 @@ public sealed class LaneUnitCombat : MonoBehaviour
     }
 
     public void ConfigureLane(int laneIndex) => assignedLane = Mathf.Clamp(laneIndex, 0, Mathf.Max(1, lane ? lane.battleLaneCount - 1 : 1));
+
+    public void ConfigureLaneOffset(float offset)
+    {
+        float inset = lane ? Mathf.Max(.65f, lane.cellSize * .65f) : .65f;
+        float maximum = lane ? Mathf.Max(0f, lane.RoadWidth * .5f - inset) : 0f;
+        laneOffsetX = Mathf.Clamp(offset, -maximum, maximum);
+    }
 
     void Update()
     {
@@ -146,7 +155,7 @@ public sealed class LaneUnitCombat : MonoBehaviour
         float oldX = local.x;
         local.z += direction * step;
         // Classic lanes stay physically separate for their full length.
-        float routeX = lane.RoadCenterX(assignedLane);
+        float routeX = lane.RoadCenterX(assignedLane) + laneOffsetX;
         local.x = routeX;
         local.y = 0f;
         transform.position = lane.transform.TransformPoint(local);

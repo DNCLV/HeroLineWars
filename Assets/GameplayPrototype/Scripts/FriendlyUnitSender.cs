@@ -72,8 +72,17 @@ public sealed class FriendlyUnitSender : MonoBehaviour
         if (!matchLoop.CanAfford(cost)) return;
 
         int assignedLane = spawner.AlliedDefenseLaneIndex;
+        // Keep rapidly purchased units physically readable. The previous
+        // implementation spawned every model at one point and movement then
+        // snapped every unit onto the exact same centre line.
+        int formationIndex = TotalSuccessfulPurchases;
+        int column = formationIndex % 5;
+        int row = (formationIndex / 5) % 3;
+        int[] columnOrder = { 0, -1, 1, -2, 2 };
+        float lateralOffset = columnOrder[column] * spawnSpacing;
+        float longitudinalOffset = row * spawnRowSpacing;
         GameObject spawned = spawner.SpawnFriendly(prefab, archetype, assignedLane,
-            TotalSuccessfulPurchases + 1);
+            TotalSuccessfulPurchases + 1, lateralOffset, longitudinalOffset);
         if (!spawned)
         {
             Debug.LogWarning($"{archetype} spawn failed; purchase was rejected and no Gold was charged.", this);

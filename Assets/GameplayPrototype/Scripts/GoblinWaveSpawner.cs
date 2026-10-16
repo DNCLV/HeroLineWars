@@ -356,13 +356,35 @@ public sealed class GoblinWaveSpawner : MonoBehaviour
         return unit;
     }
 
-    public GameObject SpawnFriendly(GameObject prefab, UnitArchetype archetype, int assignedLane, int purchaseNumber)
+    public GameObject SpawnFriendly(GameObject prefab, UnitArchetype archetype, int assignedLane, int purchaseNumber,
+        float lateralOffset = 0f, float longitudinalOffset = 0f)
     {
         if (!lane || !prefab || (matchLoop && !matchLoop.IsRunning)) return null;
         assignedLane = AlliedDefenseLaneIndex;
-        Vector3 position = EndpointPosition(false, lane.RoadCenterX(assignedLane), heroSpawnInset + .8f);
-        return SpawnUnit(prefab, archetype, UnitTeam.Friendly, position,
+        float edgeInset = Mathf.Max(.65f, lane.cellSize * .65f);
+        float maximumOffset = Mathf.Max(0f, lane.RoadWidth * .5f - edgeInset);
+        lateralOffset = Mathf.Clamp(lateralOffset, -maximumOffset, maximumOffset);
+        Vector3 localPosition = new Vector3(lane.RoadCenterX(assignedLane) + lateralOffset, 0f,
+            Mathf.Clamp(heroSpawnInset + .8f + Mathf.Max(0f, longitudinalOffset),
+                edgeInset, lane.LengthWorld - edgeInset));
+        GameObject spawned = SpawnUnit(prefab, archetype, UnitTeam.Friendly,
+            lane.transform.TransformPoint(localPosition),
             $"Friendly_{archetype}_{purchaseNumber}_Lane{assignedLane + 1}", assignedLane);
+        if (!spawned) return null;
+        LaneUnitCombat combat = spawned.GetComponent<LaneUnitCombat>();
+        if (combat) combat.ConfigureLaneOffset(lateralOffset);
+        Renderer[] renderers = spawned.GetComponentsInChildren<Renderer>(true);
+        bool hasVisibleModel = false;
+        for (int i = 0; i < renderers.Length; i++)
+            if (renderers[i] && renderers[i].enabled && renderers[i].gameObject.activeInHierarchy &&
+                !(renderers[i].transform.name.Contains("Ring") || renderers[i] is ParticleSystemRenderer))
+            {
+                hasVisibleModel = true;
+                break;
+            }
+        if (!hasVisibleModel)
+            Debug.LogError($"Spawned {archetype} has no active model renderer. Check its imported prefab.", spawned);
+        return spawned;
     }
 
     EnemyPrefab[] GetEnemyPrefabs()
