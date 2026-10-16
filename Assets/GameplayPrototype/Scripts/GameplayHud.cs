@@ -7,11 +7,11 @@ using UnityEngine.UI;
 [DefaultExecutionOrder(-50)]
 public sealed class GameplayHud : MonoBehaviour
 {
-    const int HudLayoutVersion = 4;
+    const int HudLayoutVersion = 11;
     [Min(120f)] public float abilityButtonSize = 176f;
     [Min(8f)] public float safeAreaPadding = 18f;
-    [Min(200f)] public float minimapWidth = 436f;
-    [Min(140f)] public float minimapHeight = 280f;
+    [Min(200f)] public float minimapWidth = 320f;
+    [Min(109f)] public float minimapHeight = 190f;
     public MatchLoopController matchLoop;
 
     [Header("Fireball Button Layout")]
@@ -33,6 +33,10 @@ public sealed class GameplayHud : MonoBehaviour
     static readonly Color Gold = new Color(1f, .73f, .2f, 1f);
     static readonly Color IncomeGreen = new Color(.39f, .88f, .35f, 1f);
     static readonly Color TimerViolet = new Color(.48f, .68f, 1f, 1f);
+    static readonly Color ArcherAccent = new Color(.24f, .9f, .68f, 1f);
+    static readonly Color KnightAccent = new Color(1f, .72f, .28f, 1f);
+    static readonly Color WizardAccent = new Color(.67f, .46f, 1f, 1f);
+    static readonly Color ControlNavy = new Color(.035f, .065f, .115f, .98f);
 
     Canvas canvas;
     RectTransform safeRoot;
@@ -55,6 +59,7 @@ public sealed class GameplayHud : MonoBehaviour
 
     Button unitsToggle;
     Button itemsToggle;
+    Button speedToggle;
     Button fireballButton;
     Button archerButton;
     Button knightButton;
@@ -62,6 +67,7 @@ public sealed class GameplayHud : MonoBehaviour
     Button restartButton;
     Image unitsToggleSelected;
     Image itemsToggleSelected;
+    Image speedToggleGlow;
     AbilityButtonView fireballView;
     Text goldLabel;
     Text incomeLabel;
@@ -74,6 +80,8 @@ public sealed class GameplayHud : MonoBehaviour
     Text archerLabel;
     Text knightLabel;
     Text wizardLabel;
+    Text speedLabel;
+    Text matchTimeLabel;
     GameObject unitsPanel;
     GameObject itemsPanel;
     GameObject resultPanel;
@@ -92,11 +100,14 @@ public sealed class GameplayHud : MonoBehaviour
     int lastArcherCost = -1;
     int lastKnightCost = -1;
     int lastWizardCost = -1;
+    int lastSpeedMultiplier = -1;
+    int lastElapsedSecond = -1;
     bool reportedRecovery;
     int builtHudLayoutVersion;
 
     void Awake()
     {
+        HlwGameSpeed.ResetToNormal();
         ConfigureLandscape();
         EnsureEventSystem();
         LoadFantasySprites();
@@ -116,6 +127,10 @@ public sealed class GameplayHud : MonoBehaviour
         }
     }
 
+    void OnDisable() { HlwGameSpeed.ResetToNormal(); }
+    void OnDestroy() { HlwGameSpeed.ResetToNormal(); }
+    void OnApplicationQuit() { HlwGameSpeed.ResetToNormal(); }
+
     void Start()
     {
         // Start is still invoked when Enter Play Mode has scene/domain reloads
@@ -126,7 +141,7 @@ public sealed class GameplayHud : MonoBehaviour
 
     void EnsureHudInitialized()
     {
-        if (builtHudLayoutVersion == HudLayoutVersion && canvas && safeRoot && unitsToggle && itemsToggle && fireballButton &&
+        if (builtHudLayoutVersion == HudLayoutVersion && canvas && safeRoot && unitsToggle && itemsToggle && speedToggle && fireballButton &&
             goldLabel && incomeLabel && payoutLabel && blueBaseLabel && redBaseLabel)
         {
             canvas.gameObject.SetActive(true);
@@ -135,6 +150,7 @@ public sealed class GameplayHud : MonoBehaviour
             safeRoot.gameObject.SetActive(true);
             unitsToggle.gameObject.SetActive(true);
             itemsToggle.gameObject.SetActive(true);
+            speedToggle.gameObject.SetActive(true);
             fireballButton.gameObject.SetActive(true);
             return;
         }
@@ -192,6 +208,7 @@ public sealed class GameplayHud : MonoBehaviour
 
         bool running = matchLoop && matchLoop.IsRunning;
         UpdateFireball(running);
+        UpdateSpeedVisual();
         if (sender)
         {
             UpdatePurchaseVisual(archerButton, archerLabel, sender.CanPurchase(UnitArchetype.GreenArcher));
@@ -203,12 +220,18 @@ public sealed class GameplayHud : MonoBehaviour
         int gold = matchLoop ? matchLoop.Gold : 0;
         int income = matchLoop ? matchLoop.Income : 0;
         int countdown = matchLoop ? Mathf.CeilToInt(matchLoop.PayoutCountdown) : 0;
+        int elapsedSecond = matchLoop ? Mathf.FloorToInt(matchLoop.ElapsedTime) : 0;
         int blueBase = matchLoop ? matchLoop.BlueBaseHealth : 0;
         int redBase = matchLoop ? matchLoop.RedBaseHealth : 0;
         if (goldLabel && gold != lastGold) { goldLabel.text = gold.ToString(); lastGold = gold; }
         if (incomeLabel && income != lastIncome) { incomeLabel.text = $"+{income}"; lastIncome = income; }
         if (payoutLabel && countdown != lastCountdown)
         { payoutLabel.text = $"{countdown}s"; lastCountdown = countdown; }
+        if (matchTimeLabel && elapsedSecond != lastElapsedSecond)
+        {
+            matchTimeLabel.text = $"{elapsedSecond / 60:00}:{elapsedSecond % 60:00}";
+            lastElapsedSecond = elapsedSecond;
+        }
         if (blueBaseLabel && blueBase != lastBlueBase)
         { blueBaseLabel.text = $"{blueBase} HP"; lastBlueBase = blueBase; }
         if (redBaseLabel && redBase != lastRedBase)
@@ -224,7 +247,8 @@ public sealed class GameplayHud : MonoBehaviour
             bool ended = matchLoop && matchLoop.Result != MatchResult.None;
             resultPanel.SetActive(ended);
             if (ended && resultLabel)
-                resultLabel.text = matchLoop.Result == MatchResult.Victory ? "VICTORY" : "DEFEAT";
+                resultLabel.text = matchLoop.Result == MatchResult.SurvivalVictory
+                    ? "SURVIVAL VICTORY" : matchLoop.Result == MatchResult.Victory ? "VICTORY" : "DEFEAT";
         }
     }
 
@@ -296,6 +320,7 @@ public sealed class GameplayHud : MonoBehaviour
 
         BuildTopInfo();
         BuildMinimap();
+        BuildSpeedControl();
         BuildUnitMenu();
         BuildItemsPanel();
         BuildAbilityControls();
@@ -342,53 +367,103 @@ public sealed class GameplayHud : MonoBehaviour
         const float widgetWidth = 174f;
         const float widgetGap = 8f;
         float singleRowWidth = widgetWidth * 5f + widgetGap * 4f;
-        float threeWidgetWidth = widgetWidth * 3f + widgetGap * 2f;
         float margins = safeAreaPadding * 2f + 24f;
-        topHudTwoRows = safeWidth < minimapWidth + singleRowWidth + margins;
-        activeMinimapWidth = minimapWidth;
-        if (safeWidth < activeMinimapWidth + (topHudTwoRows ? threeWidgetWidth : singleRowWidth) + margins)
-            activeMinimapWidth = Mathf.Min(activeMinimapWidth, Mathf.Max(240f,
-                (safeWidth - (topHudTwoRows ? threeWidgetWidth : singleRowWidth) - margins) * .88f));
-        activeMinimapHeight = minimapHeight * (activeMinimapWidth / Mathf.Max(1f, minimapWidth));
+        const float styledMinimapWidth = 320f;
+        const float styledMinimapHeight = 190f;
+        topHudTwoRows = safeWidth < styledMinimapWidth + singleRowWidth + margins;
+        activeMinimapWidth = styledMinimapWidth;
+        activeMinimapHeight = styledMinimapHeight;
     }
 
     void BuildMinimap()
     {
         if (!minimapHud) minimapHud = canvas.GetComponent<SchematicMinimapHud>();
         if (!minimapHud) minimapHud = canvas.gameObject.AddComponent<SchematicMinimapHud>();
-        minimapHud.Build(safeRoot, panelFrameSprite, circleSprite, new Vector2(safeAreaPadding, -safeAreaPadding),
+        minimapHud.Build(safeRoot, panelFrameSprite, circleSprite, new Vector2(24f, -24f),
             new Vector2(activeMinimapWidth, activeMinimapHeight));
+    }
+
+    void BuildSpeedControl()
+    {
+        GameObject speedObject = new GameObject("GameSpeedToggle", typeof(RectTransform), typeof(Image),
+            typeof(Button), typeof(Outline));
+        speedObject.transform.SetParent(safeRoot, false);
+        RectTransform rect = speedObject.GetComponent<RectTransform>();
+        rect.anchorMin = rect.anchorMax = new Vector2(0f, 1f);
+        rect.pivot = new Vector2(0f, 1f);
+        rect.anchoredPosition = new Vector2(364f, -24f);
+        rect.sizeDelta = new Vector2(92f, 56f);
+
+        Image background = speedObject.GetComponent<Image>();
+        background.sprite = capsuleSprite;
+        background.type = capsuleSprite ? Image.Type.Sliced : Image.Type.Simple;
+        background.color = ControlNavy;
+        background.raycastTarget = true;
+        AddShadow(background, new Color(0f, .01f, .03f, .72f), new Vector2(0f, -4f));
+
+        speedToggle = speedObject.GetComponent<Button>();
+        speedToggle.targetGraphic = background;
+        speedToggle.transition = Selectable.Transition.ColorTint;
+        SetButtonColors(speedToggle, Cyan);
+        MobileButtonPressFeedback feedback = speedObject.AddComponent<MobileButtonPressFeedback>();
+        feedback.Configure(speedToggle);
+
+        Outline outline = speedObject.GetComponent<Outline>();
+        outline.effectColor = new Color(.22f, .58f, .82f, .68f);
+        outline.effectDistance = new Vector2(1.5f, 1.5f);
+        speedToggleGlow = CreateImage("ActiveGlow", speedObject.transform,
+            capsuleSprite, Vector2.zero, new Vector2(100f, 64f), new Color(.2f, .86f, 1f, 0f), false);
+        speedToggleGlow.type = capsuleSprite ? Image.Type.Sliced : Image.Type.Simple;
+        speedToggleGlow.preserveAspect = false;
+        speedToggleGlow.transform.SetAsFirstSibling();
+        speedLabel = CreateText("SpeedLabel", speedObject.transform, "1×", new Vector2(0f, 9f),
+            new Vector2(82f, 25f), 18, TextAnchor.MiddleCenter, Color.white, false);
+        AddTextShadow(speedLabel);
+        matchTimeLabel = CreateText("MatchTime", speedObject.transform, "00:00", new Vector2(0f, -14f),
+            new Vector2(82f, 18f), 11, TextAnchor.MiddleCenter, new Color(.68f, .78f, .88f), false);
+        AddTextShadow(matchTimeLabel);
+        speedToggle.onClick.AddListener(ToggleGameSpeed);
+        lastSpeedMultiplier = -1;
+        lastElapsedSecond = -1;
+        UpdateSpeedVisual();
     }
 
     void BuildUnitMenu()
     {
         // A transparent anchored group lets the three purchase buttons fan out
         // above the primary Units control without drawing a rectangular tray.
-        unitsPanel = new GameObject("UnitsFanMenu", typeof(RectTransform));
+        unitsPanel = new GameObject("UnitsFanMenu", typeof(RectTransform), typeof(Image));
         unitsPanel.transform.SetParent(safeRoot, false);
         RectTransform fanRect = unitsPanel.GetComponent<RectTransform>();
         fanRect.anchorMin = fanRect.anchorMax = Vector2.zero;
         fanRect.pivot = Vector2.zero;
-        fanRect.anchoredPosition = new Vector2(safeAreaPadding, safeAreaPadding);
-        fanRect.sizeDelta = new Vector2(350f, 310f);
+        fanRect.anchoredPosition = new Vector2(24f, 24f);
+        fanRect.sizeDelta = new Vector2(348f, 336f);
+        Image fanInputBlocker = unitsPanel.GetComponent<Image>();
+        fanInputBlocker.color = Color.clear;
+        fanInputBlocker.raycastTarget = true;
         unitsPanel.SetActive(false);
-        CreatePurchaseCard("SendArcherButton", "A", "ARCHER", new Vector2(0f, 144f), out archerButton, out archerLabel);
-        CreatePurchaseCard("SendKnightButton", "K", "KNIGHT", new Vector2(120f, 190f), out knightButton, out knightLabel);
-        CreatePurchaseCard("SendWizardButton", "W", "WIZARD", new Vector2(240f, 144f), out wizardButton, out wizardLabel);
+        CreatePurchaseCard("SendArcherButton", "A", "ARCHER", new Vector2(8f, 154f),
+            ArcherAccent, buttonGreenSprite, out archerButton, out archerLabel);
+        CreatePurchaseCard("SendKnightButton", "K", "KNIGHT", new Vector2(118f, 212f),
+            KnightAccent, buttonCyanSprite, out knightButton, out knightLabel);
+        CreatePurchaseCard("SendWizardButton", "W", "WIZARD", new Vector2(228f, 154f),
+            WizardAccent, buttonPurpleSprite, out wizardButton, out wizardLabel);
         archerButton.onClick.AddListener(SendArcher);
         knightButton.onClick.AddListener(SendKnight);
         wizardButton.onClick.AddListener(SendWizard);
 
-        CreateButton("UnitsToggle", safeRoot, "UNITS", new Vector2(safeAreaPadding, safeAreaPadding),
+        CreateButton("UnitsToggle", safeRoot, "UNITS", new Vector2(24f, 24f),
             new Vector2(128f, 128f), true, Cyan, out unitsToggle, out _);
-        CreateButton("ItemsToggle", safeRoot, "ITEMS", new Vector2(safeAreaPadding + 148f, safeAreaPadding + 8f),
-            new Vector2(112f, 112f), true, Cyan, out itemsToggle, out _);
+        CreateButton("ItemsToggle", safeRoot, "ITEMS", new Vector2(172f, 31f),
+            new Vector2(102f, 102f), true, Blue, out itemsToggle, out _);
         unitsToggleSelected = CreateSelectedButtonLayer(unitsToggle.transform);
         itemsToggleSelected = CreateSelectedButtonLayer(itemsToggle.transform);
         unitsToggle.onClick.AddListener(ToggleUnitsPanel);
     }
 
     void CreatePurchaseCard(string objectName, string emblem, string unitName, Vector2 position,
+        Color accent, Sprite accentSprite,
         out Button button, out Text purchaseLabel)
     {
         GameObject card = new GameObject(objectName, typeof(RectTransform), typeof(Image), typeof(Button), typeof(Outline));
@@ -397,27 +472,33 @@ public sealed class GameplayHud : MonoBehaviour
         rect.anchorMin = rect.anchorMax = Vector2.zero;
         rect.pivot = Vector2.zero;
         rect.anchoredPosition = position;
-        rect.sizeDelta = new Vector2(100f, 100f);
+        rect.sizeDelta = new Vector2(96f, 96f);
         Image background = card.GetComponent<Image>();
-        background.sprite = buttonGreenSprite ? buttonGreenSprite : circleSprite;
-        background.color = background.sprite ? Color.white : new Color(.045f, .14f, .2f, .98f);
+        background.sprite = accentSprite ? accentSprite : circleSprite;
+        background.color = background.sprite ? Color.white : ControlNavy;
         background.raycastTarget = true;
         button = card.GetComponent<Button>();
         button.targetGraphic = background;
         button.transition = Selectable.Transition.ColorTint;
-        SetButtonColors(button, Cyan);
+        SetButtonColors(button, accent);
+        MobileButtonPressFeedback pressFeedback = card.AddComponent<MobileButtonPressFeedback>();
+        pressFeedback.Configure(button);
         Outline outline = card.GetComponent<Outline>();
-        outline.effectColor = new Color(.2f, .72f, .92f, .7f);
-        outline.effectDistance = new Vector2(1.5f, 1.5f);
+        outline.effectColor = new Color(accent.r, accent.g, accent.b, .82f);
+        outline.effectDistance = new Vector2(2f, 2f);
         AddShadow(background, new Color(0f, .01f, .025f, .64f), new Vector2(0f, -3f));
+        Image interior = CreateImage("DarkInterior", card.transform, circleSprite,
+            Vector2.zero, new Vector2(82f, 82f), Color.Lerp(ControlNavy, accent, .08f), false);
+        interior.preserveAspect = true;
         Image frame = CreateImage("FantasyFrame", card.transform, ornateButtonFrameSprite,
-            Vector2.zero, new Vector2(108f, 108f), Color.white, false);
+            Vector2.zero, new Vector2(104f, 104f), new Color(accent.r, accent.g, accent.b, .92f), false);
         frame.preserveAspect = true;
         Text crest = CreateText("UnitEmblem", card.transform, emblem, new Vector2(0f, 16f),
-            new Vector2(44f, 40f), 28, TextAnchor.MiddleCenter, new Color(.91f, .97f, 1f), false);
+            new Vector2(44f, 40f), 28, TextAnchor.MiddleCenter,
+            Color.Lerp(Color.white, accent, .32f), false);
         AddTextShadow(crest);
         purchaseLabel = CreateText("UnitAndCost", card.transform, unitName + "\n1 GOLD",
-            new Vector2(0f, -30f), new Vector2(92f, 38f), 13, TextAnchor.MiddleCenter, Color.white, false);
+            new Vector2(0f, -29f), new Vector2(90f, 38f), 12, TextAnchor.MiddleCenter, Color.white, false);
         AddTextShadow(purchaseLabel);
     }
 
@@ -433,8 +514,8 @@ public sealed class GameplayHud : MonoBehaviour
 
     void BuildItemsPanel()
     {
-        itemsPanel = CreatePanel("ItemsPanel", safeRoot, new Vector2(safeAreaPadding + 148f, 144f),
-            new Vector2(220f, 92f), TextAnchor.LowerLeft);
+        itemsPanel = CreatePanel("ItemsPanel", safeRoot, new Vector2(172f, 150f),
+            new Vector2(230f, 98f), TextAnchor.LowerLeft);
         Image icon = CreateImage("ItemsPanelIcon", itemsPanel.transform, itemsIconSprite,
             new Vector2(-72f, 3f), new Vector2(38f, 38f), Color.white, false);
         icon.preserveAspect = true;
@@ -568,6 +649,33 @@ public sealed class GameplayHud : MonoBehaviour
         SetButtonColors(unitsToggle, Blue);
     }
 
+    void ToggleGameSpeed()
+    {
+        HlwGameSpeed.SetMultiplier(HlwGameSpeed.Multiplier == 2 ? 1 : 2);
+        UpdateSpeedVisual();
+    }
+
+    void UpdateSpeedVisual()
+    {
+        int multiplier = HlwGameSpeed.Multiplier;
+        if (multiplier == lastSpeedMultiplier || !speedToggle) return;
+        lastSpeedMultiplier = multiplier;
+        bool fast = multiplier == 2;
+        if (speedLabel)
+        {
+            speedLabel.text = fast ? "2×" : "1×";
+            speedLabel.color = fast ? new Color(.72f, .96f, 1f, 1f) : Color.white;
+        }
+        if (speedToggleGlow) speedToggleGlow.color = fast
+            ? new Color(.2f, .86f, 1f, .28f) : new Color(.2f, .86f, 1f, 0f);
+        Image background = speedToggle.GetComponent<Image>();
+        if (background) background.color = fast
+            ? new Color(.045f, .13f, .19f, .99f) : ControlNavy;
+        Outline outline = speedToggle.GetComponent<Outline>();
+        if (outline) outline.effectColor = fast
+            ? new Color(.25f, .9f, 1f, .95f) : new Color(.22f, .58f, .82f, .68f);
+    }
+
     void SetButtonSelected(Button button, Image selectedLayer, bool selected)
     {
         if (selectedLayer)
@@ -575,9 +683,18 @@ public sealed class GameplayHud : MonoBehaviour
             selectedLayer.color = selected ? new Color(.35f, .9f, 1f, .34f) : new Color(.35f, .9f, 1f, 0f);
             selectedLayer.transform.SetAsFirstSibling();
         }
-        if (button) button.transform.localScale = selected ? Vector3.one * 1.055f : Vector3.one;
-        SetButtonSkin(button, selected ? buttonGreenSprite : buttonCyanSprite,
-            new Color(.06f, selected ? .28f : .18f, .25f, .98f));
+        if (button)
+        {
+            button.transform.localScale = selected ? Vector3.one * 1.035f : Vector3.one;
+            SetButtonSkin(button, circleSprite, ControlNavy);
+            Transform interiorTransform = button.transform.Find("DarkInterior");
+            Image interior = interiorTransform ? interiorTransform.GetComponent<Image>() : null;
+            if (interior) interior.color = selected
+                ? new Color(.055f, .16f, .22f, .99f) : ControlNavy;
+            Outline rim = button.GetComponent<Outline>();
+            if (rim) rim.effectColor = selected
+                ? new Color(.36f, .92f, 1f, .95f) : new Color(.2f, .62f, .88f, .72f);
+        }
     }
 
     void ToggleFireballTargeting()
@@ -589,6 +706,10 @@ public sealed class GameplayHud : MonoBehaviour
         {
             unitsPanel.SetActive(false);
             itemsPanel.SetActive(false);
+            SetButtonSelected(unitsToggle, unitsToggleSelected, false);
+            SetButtonSelected(itemsToggle, itemsToggleSelected, false);
+            SetButtonColors(unitsToggle, Blue);
+            SetButtonColors(itemsToggle, Blue);
         }
     }
 
@@ -771,11 +892,19 @@ public sealed class GameplayHud : MonoBehaviour
         button.targetGraphic = image;
         button.transition = Selectable.Transition.ColorTint;
         SetButtonColors(button, accent);
+        MobileButtonPressFeedback pressFeedback = buttonObject.AddComponent<MobileButtonPressFeedback>();
+        pressFeedback.Configure(button);
         Outline outline = buttonObject.GetComponent<Outline>();
         outline.effectColor = accent;
         outline.effectDistance = circle ? new Vector2(2f, 2f) : new Vector2(1.5f, 1.5f);
         outline.useGraphicAlpha = true;
         AddShadow(image, new Color(0f, .01f, .025f, .68f), new Vector2(0f, -4f));
+        if (circle)
+        {
+            Image interior = CreateImage("DarkInterior", buttonObject.transform, circleSprite,
+                Vector2.zero, size * .82f, ControlNavy, false);
+            interior.preserveAspect = true;
+        }
         if (circle && ornateButtonFrameSprite)
         {
             Image frame = CreateImage("FantasyFrame", buttonObject.transform, ornateButtonFrameSprite,
@@ -851,6 +980,7 @@ public sealed class GameplayHud : MonoBehaviour
     Sprite ButtonSprite(string name)
     {
         if (name == "FireballButton") return circleSprite;
+        if (name == "UnitsToggle") return circleSprite;
         if (name == "ItemsToggle") return circleSprite;
         if (name.StartsWith("Send", System.StringComparison.Ordinal)) return buttonGreenSprite;
         return buttonCyanSprite ? buttonCyanSprite : circleSprite;
@@ -906,10 +1036,10 @@ public sealed class GameplayHud : MonoBehaviour
         if (!button) return;
         ColorBlock colors = button.colors;
         colors.normalColor = Color.white;
-        colors.highlightedColor = new Color(accent.r, accent.g, accent.b, .98f);
-        colors.pressedColor = new Color(accent.r * .72f, accent.g * .72f, accent.b * .72f, 1f);
-        colors.selectedColor = colors.highlightedColor;
-        colors.disabledColor = new Color(.18f, .22f, .27f, .52f);
+        colors.highlightedColor = Color.white;
+        colors.pressedColor = Color.Lerp(Color.white, accent, .22f);
+        colors.selectedColor = Color.white;
+        colors.disabledColor = new Color(.44f, .48f, .52f, .58f);
         colors.colorMultiplier = 1f;
         button.colors = colors;
         Outline outline = button.GetComponent<Outline>();
@@ -921,15 +1051,34 @@ public sealed class GameplayHud : MonoBehaviour
         if (!button) return;
         button.interactable = affordable;
         Image background = button.GetComponent<Image>();
-        Sprite stateSprite = affordable ? buttonGreenSprite : circleSprite;
+        Color accent = PurchaseAccent(button.name);
         if (background)
         {
-            if (background.sprite != stateSprite) background.sprite = stateSprite;
-            background.color = stateSprite ? Color.white : FallbackButtonColor(button.name);
+            background.color = affordable ? Color.white : new Color(.42f, .47f, .52f, .72f);
         }
         if (label) label.color = affordable ? Color.white : new Color(.58f, .65f, .7f, .58f);
+        Transform emblemTransform = button.transform.Find("UnitEmblem");
+        Text emblem = emblemTransform ? emblemTransform.GetComponent<Text>() : null;
+        if (emblem) emblem.color = affordable
+            ? Color.Lerp(Color.white, accent, .32f) : new Color(.52f, .57f, .62f, .62f);
+        Transform interiorTransform = button.transform.Find("DarkInterior");
+        Image interior = interiorTransform ? interiorTransform.GetComponent<Image>() : null;
+        if (interior) interior.color = affordable
+            ? Color.Lerp(ControlNavy, accent, .08f) : new Color(.055f, .065f, .075f, .74f);
+        Transform frameTransform = button.transform.Find("FantasyFrame");
+        Image frame = frameTransform ? frameTransform.GetComponent<Image>() : null;
+        if (frame) frame.color = affordable
+            ? new Color(accent.r, accent.g, accent.b, .92f) : new Color(.34f, .39f, .44f, .46f);
         Outline outline = button.GetComponent<Outline>();
-        if (outline) outline.effectColor = affordable ? Cyan : new Color(.2f, .38f, .48f, .32f);
+        if (outline) outline.effectColor = affordable
+            ? new Color(accent.r, accent.g, accent.b, .82f) : new Color(.2f, .28f, .34f, .34f);
+    }
+
+    static Color PurchaseAccent(string buttonName)
+    {
+        if (buttonName.Contains("Knight")) return KnightAccent;
+        if (buttonName.Contains("Wizard")) return WizardAccent;
+        return ArcherAccent;
     }
 
     static void ConfigureLandscape()
@@ -955,5 +1104,105 @@ public sealed class GameplayHud : MonoBehaviour
         module.AssignDefaultActions();
         foreach (BaseInputModule other in eventObject.GetComponents<BaseInputModule>())
             if (other != module) other.enabled = false;
+    }
+}
+
+/// <summary>Touch-only scale and rim feedback; no hover state is required.</summary>
+public sealed class MobileButtonPressFeedback : MonoBehaviour, IPointerDownHandler, IPointerUpHandler, IPointerExitHandler
+{
+    Button button;
+    Outline rim;
+    Vector3 restingScale = Vector3.one;
+    Color restingRim;
+    bool pressed;
+
+    public void Configure(Button target)
+    {
+        button = target;
+        rim = GetComponent<Outline>();
+    }
+
+    public void OnPointerDown(PointerEventData eventData)
+    {
+        if (!button || !button.interactable) return;
+        pressed = true;
+        restingScale = transform.localScale;
+        if (rim) restingRim = rim.effectColor;
+        transform.localScale = restingScale * .94f;
+        BrightenRim();
+    }
+
+    public void OnPointerUp(PointerEventData eventData) { Restore(); }
+    public void OnPointerExit(PointerEventData eventData) { Restore(); }
+
+    void LateUpdate()
+    {
+        if (!pressed) return;
+        if (!button || !button.interactable) Restore();
+        else BrightenRim();
+    }
+
+    void BrightenRim()
+    {
+        if (rim) rim.effectColor = Color.Lerp(restingRim, Color.white, .38f);
+    }
+
+    void Restore()
+    {
+        if (!pressed) return;
+        pressed = false;
+        transform.localScale = restingScale;
+        if (rim) rim.effectColor = restingRim;
+    }
+
+    void OnDisable() { Restore(); }
+}
+
+/// <summary>Single source of truth for scaled gameplay time and its physics cadence.</summary>
+public static class HlwGameSpeed
+{
+    static float normalFixedDeltaTime = .02f;
+    static bool initialized;
+    static int multiplier = 1;
+
+    public static int Multiplier => multiplier;
+
+    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+    static void ResetRuntimeState()
+    {
+        CaptureNormalFixedDeltaTime();
+        Apply(1);
+    }
+
+    public static void SetMultiplier(int value)
+    {
+        EnsureInitialized();
+        Apply(value >= 2 ? 2 : 1);
+    }
+
+    public static void ResetToNormal()
+    {
+        EnsureInitialized();
+        Apply(1);
+    }
+
+    static void EnsureInitialized()
+    {
+        if (initialized) return;
+        CaptureNormalFixedDeltaTime();
+    }
+
+    static void CaptureNormalFixedDeltaTime()
+    {
+        float currentScale = Mathf.Max(.0001f, Time.timeScale);
+        normalFixedDeltaTime = Mathf.Max(.001f, Time.fixedDeltaTime / currentScale);
+        initialized = true;
+    }
+
+    static void Apply(int value)
+    {
+        multiplier = value;
+        Time.timeScale = multiplier;
+        Time.fixedDeltaTime = normalFixedDeltaTime * multiplier;
     }
 }

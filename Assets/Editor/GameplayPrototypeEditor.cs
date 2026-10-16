@@ -83,17 +83,27 @@ public static class GameplayPrototypeEditor
         sender.greenArcherPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(archerPath);
         sender.holyKnightPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(knightPath);
         sender.blueWizardPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(wizardPath);
-        // Normalize these serialized match-economy values on every setup run.
-        // Other sender and match-loop Inspector settings are deliberately preserved.
-        sender.archerCost = 1;
-        sender.archerIncomeBonus = 1;
-        sender.knightCost = 1;
-        sender.knightIncomeBonus = 1;
-        sender.wizardCost = 1;
-        sender.wizardIncomeBonus = 1;
-        matchLoop.startingGold = 5;
+        // Normalize Survival v2 economy and director values on every setup run.
+        // Combat profiles and unrelated Inspector settings are deliberately preserved.
+        sender.archerCost = 5;
+        sender.knightCost = 9;
+        sender.wizardCost = 14;
+        matchLoop.startingGold = 8;
         matchLoop.startingIncome = 1;
         matchLoop.payoutInterval = 10f;
+        matchLoop.goldSpentPerIncome = 25;
+        matchLoop.survivalDuration = 360f;
+        spawner.minuteOneSpawnCount = 12;
+        spawner.minuteTwoSpawnCount = 18;
+        spawner.minuteThreeSpawnCount = 24;
+        spawner.minuteFourSpawnCount = 30;
+        spawner.minuteFiveSpawnCount = 36;
+        spawner.minuteSixSpawnCount = 42;
+        spawner.openingGhoulWeight = .12f;
+        spawner.finalGoblinWeight = .22f;
+        spawner.finalGhoulWeight = .38f;
+        spawner.finalSkeletonWeight = .24f;
+        spawner.finalDragonWeight = .16f;
         hud.matchLoop = matchLoop;
 
         EditorUtility.SetDirty(spawner);

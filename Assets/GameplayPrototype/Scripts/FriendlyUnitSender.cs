@@ -12,12 +12,9 @@ public sealed class FriendlyUnitSender : MonoBehaviour
     [Min(.1f)] public float spawnRowSpacing = 1f;
 
     [Header("Match purchase settings")]
-    [Min(0)] public int archerCost = 1;
-    [Min(0)] public int archerIncomeBonus = 1;
-    [Min(0)] public int knightCost = 1;
-    [Min(0)] public int knightIncomeBonus = 1;
-    [Min(0)] public int wizardCost = 1;
-    [Min(0)] public int wizardIncomeBonus = 1;
+    [Min(0)] public int archerCost = 5;
+    [Min(0)] public int knightCost = 9;
+    [Min(0)] public int wizardCost = 14;
 
     int nextLaneIndex;
     public int NextLaneIndex => nextLaneIndex;
@@ -26,6 +23,8 @@ public sealed class FriendlyUnitSender : MonoBehaviour
     public int TotalFriendlyUnitsSpawned { get; private set; }
     public int TotalFriendlyDeaths { get; private set; }
     public int TotalFriendlyUnitsReachedEnemyBase { get; private set; }
+    public int TotalGoldSpent => matchLoop ? matchLoop.TotalGoldSpent : 0;
+    public int IncomeBonusesGranted => matchLoop ? matchLoop.IncomeBonusesGranted : 0;
     public int ActiveFriendlyCount => UnitCombatRegistry.Count(UnitTeam.Friendly);
 
     void Awake()
@@ -34,9 +33,9 @@ public sealed class FriendlyUnitSender : MonoBehaviour
         if (!matchLoop) matchLoop = GetComponent<MatchLoopController>();
     }
 
-    public void SendArcher() => Send(greenArcherPrefab, UnitArchetype.GreenArcher, archerCost, archerIncomeBonus);
-    public void SendKnight() => Send(holyKnightPrefab, UnitArchetype.HolyKnight, knightCost, knightIncomeBonus);
-    public void SendWizard() => Send(blueWizardPrefab, UnitArchetype.BlueWizard, wizardCost, wizardIncomeBonus);
+    public void SendArcher() => Send(greenArcherPrefab, UnitArchetype.GreenArcher, archerCost);
+    public void SendKnight() => Send(holyKnightPrefab, UnitArchetype.HolyKnight, knightCost);
+    public void SendWizard() => Send(blueWizardPrefab, UnitArchetype.BlueWizard, wizardCost);
 
     public bool CanPurchase(UnitArchetype archetype)
     {
@@ -48,9 +47,6 @@ public sealed class FriendlyUnitSender : MonoBehaviour
 
     public int Cost(UnitArchetype archetype) => archetype == UnitArchetype.GreenArcher ? archerCost :
         archetype == UnitArchetype.HolyKnight ? knightCost : wizardCost;
-
-    public int IncomeBonus(UnitArchetype archetype) => archetype == UnitArchetype.GreenArcher ? archerIncomeBonus :
-        archetype == UnitArchetype.HolyKnight ? knightIncomeBonus : wizardIncomeBonus;
 
     public void ResetForMatch()
     {
@@ -72,7 +68,7 @@ public sealed class FriendlyUnitSender : MonoBehaviour
             $"deaths: {TotalFriendlyDeaths}, completed at enemy base: {TotalFriendlyUnitsReachedEnemyBase}.", this);
     }
 
-    void Send(GameObject prefab, UnitArchetype archetype, int cost, int incomeBonus)
+    void Send(GameObject prefab, UnitArchetype archetype, int cost)
     {
         if (!matchLoop) matchLoop = GetComponent<MatchLoopController>();
         if (!spawner) spawner = GetComponent<GoblinWaveSpawner>();
@@ -87,7 +83,7 @@ public sealed class FriendlyUnitSender : MonoBehaviour
             Debug.LogWarning($"{archetype} spawn failed; purchase was rejected and no Gold was charged.", this);
             return;
         }
-        if (!matchLoop.TrySpend(cost))
+        if (!matchLoop.TryCommitUnitPurchase(cost, archetype))
         {
             Destroy(spawned);
             Debug.LogWarning($"{archetype} purchase could not be committed; spawned unit was removed without charging.", this);
@@ -97,7 +93,6 @@ public sealed class FriendlyUnitSender : MonoBehaviour
         nextLaneIndex = (nextLaneIndex + 1) % 3;
         TotalFriendlyUnitsSpawned++;
         TotalSuccessfulPurchases++;
-        matchLoop.AddIncome(incomeBonus);
     }
 
     GameObject PrefabFor(UnitArchetype archetype) => archetype == UnitArchetype.GreenArcher ? greenArcherPrefab :

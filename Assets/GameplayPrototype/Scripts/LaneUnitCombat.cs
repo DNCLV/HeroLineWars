@@ -10,6 +10,8 @@ public sealed class LaneUnitCombat : MonoBehaviour
     [Min(.1f)] public float attackRange = 1.5f;
     [Min(.1f)] public float movementSpeed = 2f;
     [Min(.1f)] public float engagementRange = 4f;
+    [Min(1)] public int targetsPerAttack = 1;
+    [Min(0f)] public float multiTargetRadius = 0f;
     [Min(.1f)] public float targetRefreshInterval = .2f;
     [Min(0f)] public float baseStoppingInset = .8f;
     [Min(.1f)] public float modelScale = 1f;
@@ -111,7 +113,10 @@ public sealed class LaneUnitCombat : MonoBehaviour
         nextAttack = Time.time + attackInterval;
         GameplayVisuals.Impact(target.transform.position + lane.transform.up * .22f,
             .26f, new Color(.9f, .78f, .48f), .12f);
-        target.Health.TakeDamage(attackDamage, Faction.team);
+        if (targetsPerAttack > 1 && multiTargetRadius > 0f)
+            UnitCombatRegistry.DamageNearestOpponents(target.transform.position, multiTargetRadius,
+                attackDamage, Faction.team, lane, targetsPerAttack);
+        else target.Health.TakeDamage(attackDamage, Faction.team);
     }
 
     void AdvanceToOpposingBase()

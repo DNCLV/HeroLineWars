@@ -5,6 +5,8 @@ using UnityEngine;
 public sealed class UnitCombatRegistry : MonoBehaviour
 {
     static readonly List<LaneUnitCombat> activeUnits = new List<LaneUnitCombat>(64);
+    static readonly LaneUnitCombat[] nearestAttackTargets = new LaneUnitCombat[8];
+    static readonly float[] nearestAttackDistances = new float[8];
 
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
     static void ResetRegistry() { activeUnits.Clear(); }
@@ -93,6 +95,52 @@ public sealed class UnitCombatRegistry : MonoBehaviour
             float dx = local.x - localCenter.x;
             float dz = local.z - localCenter.z;
             if (dx * dx + dz * dz <= radiusSqr) candidate.Health.TakeDamage(damage, attacker);
+        }
+    }
+
+    /// <summary>Damages at most maxTargets closest opponents without per-attack allocations.</summary>
+    public static void DamageNearestOpponents(Vector3 center, float radius, int damage,
+        UnitTeam attacker, LaneGenerator lane, int maxTargets)
+    {
+        if (!lane || damage <= 0) return;
+        int capacity = Mathf.Clamp(maxTargets, 1, nearestAttackTargets.Length);
+        for (int i = 0; i < capacity; i++)
+        {
+            nearestAttackTargets[i] = null;
+            nearestAttackDistances[i] = float.PositiveInfinity;
+        }
+
+        float radiusSqr = radius * radius;
+        Vector3 localCenter = lane.transform.InverseTransformPoint(center);
+        for (int i = activeUnits.Count - 1; i >= 0; i--)
+        {
+            LaneUnitCombat candidate = activeUnits[i];
+            if (!candidate) { activeUnits.RemoveAt(i); continue; }
+            if (!candidate.isActiveAndEnabled || candidate.IsDead || !candidate.Faction ||
+                !candidate.Health || candidate.Faction.team == attacker || candidate.lane != lane) continue;
+            Vector3 local = lane.transform.InverseTransformPoint(candidate.transform.position);
+            float dx = local.x - localCenter.x;
+            float dz = local.z - localCenter.z;
+            float distance = dx * dx + dz * dz;
+            if (distance > radiusSqr || distance >= nearestAttackDistances[capacity - 1]) continue;
+            int insert = capacity - 1;
+            while (insert > 0 && distance < nearestAttackDistances[insert - 1])
+            {
+                nearestAttackDistances[insert] = nearestAttackDistances[insert - 1];
+                nearestAttackTargets[insert] = nearestAttackTargets[insert - 1];
+                insert--;
+            }
+            nearestAttackDistances[insert] = distance;
+            nearestAttackTargets[insert] = candidate;
+        }
+
+        for (int i = 0; i < capacity; i++)
+        {
+            LaneUnitCombat target = nearestAttackTargets[i];
+            if (!target || target.IsDead || !target.Health) continue;
+            target.Health.TakeDamage(damage, attacker);
+            if (i > 0) GameplayVisuals.Impact(target.transform.position + lane.transform.up * .2f,
+                .2f, new Color(.45f, .68f, 1f), .1f);
         }
     }
 }

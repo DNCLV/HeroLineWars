@@ -82,7 +82,7 @@ public sealed class GoblinHealth : MonoBehaviour
             if (faction)
             {
                 MatchLoopController match = MatchLoopController.Current;
-                if (match) match.RewardEnemyKill(faction.team, attackerTeam);
+                if (match) match.RewardEnemyKill(faction.team, attackerTeam, faction.archetype);
             }
         }
         LaneUnitCombat combat = GetComponent<LaneUnitCombat>();
