@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
@@ -26,6 +27,7 @@ public class HlwCameraController : MonoBehaviour
     public float boundaryPadding = 3f;
     [Tooltip("Recenter automatically when the generator dimensions change.")]
     public bool recenterWhenLaneChanges = true;
+    [Min(.05f)] public float heroFocusDuration = .25f;
 
     Camera cam;
     float targetOrthographicSize;
@@ -37,6 +39,10 @@ public class HlwCameraController : MonoBehaviour
     Bounds mapBounds;
     bool hasMapBounds;
     Transform cachedFloor;
+    Transform focusTransitionTarget;
+    Vector3 focusTransitionStart;
+    float focusTransitionElapsed;
+    readonly List<LaneUnitCombat> focusCandidates = new List<LaneUnitCombat>(64);
 
     float MinimumZoom => Mathf.Min(minimumOrthographicSize, maximumOrthographicSize);
     float MaximumZoom => Mathf.Max(minimumOrthographicSize, maximumOrthographicSize);
@@ -90,17 +96,7 @@ public class HlwCameraController : MonoBehaviour
         if (keyboard != null)
         {
             if (keyboard.rKey.wasPressedThisFrame)
-            {
-                HeroProgression playerHero = HeroProgression.PlayerHero;
-                HeroLaneController hero = playerHero ? playerHero.GetComponent<HeroLaneController>() :
-                    FindAnyObjectByType<HeroLaneController>();
-                if (hero)
-                {
-                    focusPoint = hero.transform.position;
-                    hasFocus = true;
-                    ClampFocusPoint();
-                }
-            }
+                FocusOnPlayerHero();
 
             Vector2 pan = new Vector2(
                 (keyboard.dKey.isPressed || keyboard.rightArrowKey.isPressed ? 1f : 0f) -
@@ -109,6 +105,7 @@ public class HlwCameraController : MonoBehaviour
                 (keyboard.sKey.isPressed || keyboard.downArrowKey.isPressed ? 1f : 0f));
             if (pan.sqrMagnitude > 0f)
             {
+                CancelFocusTransition();
                 ScreenGroundAxes(out Vector3 right, out Vector3 up);
                 focusPoint += (right * pan.x + up * pan.y).normalized * movementSpeed * Time.unscaledDeltaTime;
                 ClampFocusPoint();
@@ -121,11 +118,15 @@ public class HlwCameraController : MonoBehaviour
             // Windows commonly reports 120 per wheel notch; other platforms often report 1.
             float scrollSteps = Mathf.Abs(rawScroll) > 10f ? rawScroll / 120f : rawScroll;
             if (Mathf.Abs(scrollSteps) > 0.001f)
+            {
+                CancelFocusTransition();
                 targetOrthographicSize = Mathf.Clamp(targetOrthographicSize - scrollSteps * zoomSensitivity,
                     MinimumZoom, MaximumZoom);
+            }
 
             if (Mouse.current.middleButton.isPressed)
             {
+                CancelFocusTransition();
                 Vector2 drag = Mouse.current.delta.ReadValue();
                 float worldPerPixel = 2f * orthographicSize / Mathf.Max(1, Screen.height);
                 ScreenGroundAxes(out Vector3 screenRight, out Vector3 screenUp);
@@ -134,9 +135,69 @@ public class HlwCameraController : MonoBehaviour
             }
         }
 
+        UpdateFocusTransition();
+
         orthographicSize = Mathf.SmoothDamp(orthographicSize, targetOrthographicSize, ref zoomVelocity,
             zoomSmoothTime, Mathf.Infinity, Time.unscaledDeltaTime);
         Apply();
+    }
+
+    public bool FocusOnPlayerHero()
+    {
+        HeroProgression player = HeroProgression.PlayerHero;
+        if (player && player.Health && !player.Health.IsDead)
+            return BeginFocusTransition(player.transform);
+        HeroLaneController fallback = FindAnyObjectByType<HeroLaneController>();
+        return fallback && BeginFocusTransition(fallback.transform);
+    }
+
+    public bool FocusOnEnemyHero()
+    {
+        UnitCombatRegistry.CopyActiveUnits(focusCandidates);
+        for (int i = 0; i < focusCandidates.Count; i++)
+        {
+            LaneUnitCombat unit = focusCandidates[i];
+            if (unit && !unit.IsDead && unit.Faction && unit.Faction.team == UnitTeam.Enemy &&
+                unit.Faction.archetype == UnitArchetype.Battlemage)
+                return BeginFocusTransition(unit.transform);
+        }
+        return false;
+    }
+
+    public void CancelFocusTransition()
+    {
+        focusTransitionTarget = null;
+        focusTransitionElapsed = 0f;
+    }
+
+    bool BeginFocusTransition(Transform target)
+    {
+        if (!target || !lane) return false;
+        focusTransitionTarget = target;
+        focusTransitionStart = focusPoint;
+        focusTransitionElapsed = 0f;
+        hasFocus = true;
+        return true;
+    }
+
+    void UpdateFocusTransition()
+    {
+        if (!focusTransitionTarget) return;
+        GoblinHealth health = focusTransitionTarget.GetComponent<GoblinHealth>();
+        if (health && health.IsDead)
+        {
+            CancelFocusTransition();
+            return;
+        }
+        focusTransitionElapsed += Time.unscaledDeltaTime;
+        float duration = Mathf.Max(.05f, heroFocusDuration);
+        float progress = Mathf.Clamp01(focusTransitionElapsed / duration);
+        float smoothProgress = progress * progress * (3f - 2f * progress);
+        Vector3 destination = focusTransitionTarget.position;
+        destination.y = lane.transform.position.y + framingOffset.y;
+        focusPoint = Vector3.Lerp(focusTransitionStart, destination, smoothProgress);
+        ClampFocusPoint();
+        if (progress >= 1f) CancelFocusTransition();
     }
 
     void Apply()

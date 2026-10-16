@@ -7,7 +7,7 @@ using UnityEngine.UI;
 [DefaultExecutionOrder(-50)]
 public sealed class GameplayHud : MonoBehaviour
 {
-    const int HudLayoutVersion = 12;
+    const int HudLayoutVersion = 13;
     [Min(120f)] public float abilityButtonSize = 176f;
     [Min(8f)] public float safeAreaPadding = 18f;
     [Min(200f)] public float minimapWidth = 320f;
@@ -65,6 +65,8 @@ public sealed class GameplayHud : MonoBehaviour
     Button knightButton;
     Button wizardButton;
     Button restartButton;
+    Button enemyHeroFocusButton;
+    Button playerHeroFocusButton;
     Image unitsToggleSelected;
     Image itemsToggleSelected;
     Image speedToggleGlow;
@@ -331,6 +333,7 @@ public sealed class GameplayHud : MonoBehaviour
 
         BuildTopInfo();
         BuildMinimap();
+        BuildCameraFocusControls();
         BuildSpeedControl();
         BuildUnitMenu();
         BuildItemsPanel();
@@ -393,6 +396,43 @@ public sealed class GameplayHud : MonoBehaviour
         if (!minimapHud) minimapHud = canvas.gameObject.AddComponent<SchematicMinimapHud>();
         minimapHud.Build(safeRoot, panelFrameSprite, circleSprite, new Vector2(24f, -24f),
             new Vector2(activeMinimapWidth, activeMinimapHeight));
+    }
+
+    void BuildCameraFocusControls()
+    {
+        const float buttonHeight = 44f;
+        const float gap = 8f;
+        float firstY = -24f - activeMinimapHeight - gap;
+        CreateButton("EnemyHeroFocusButton", safeRoot, "ENEMY HERO", Vector2.zero,
+            new Vector2(activeMinimapWidth, buttonHeight), false, Crimson,
+            out enemyHeroFocusButton, out _, false);
+        PositionBelowMinimap(enemyHeroFocusButton, firstY);
+        enemyHeroFocusButton.onClick.AddListener(() => FocusCamera(false));
+
+        CreateButton("PlayerHeroFocusButton", safeRoot, "MY HERO", Vector2.zero,
+            new Vector2(activeMinimapWidth, buttonHeight), false, Cyan,
+            out playerHeroFocusButton, out _, false);
+        PositionBelowMinimap(playerHeroFocusButton, firstY - buttonHeight - gap);
+        playerHeroFocusButton.onClick.AddListener(() => FocusCamera(true));
+    }
+
+    static void PositionBelowMinimap(Button button, float y)
+    {
+        if (!button) return;
+        RectTransform rect = button.GetComponent<RectTransform>();
+        rect.anchorMin = rect.anchorMax = new Vector2(0f, 1f);
+        rect.pivot = new Vector2(0f, 1f);
+        rect.anchoredPosition = new Vector2(24f, y);
+    }
+
+    void FocusCamera(bool playerHero)
+    {
+        Camera mainCamera = Camera.main;
+        HlwCameraController controller = mainCamera ? mainCamera.GetComponent<HlwCameraController>() : null;
+        if (!controller) controller = FindAnyObjectByType<HlwCameraController>();
+        if (!controller) return;
+        if (playerHero) controller.FocusOnPlayerHero();
+        else controller.FocusOnEnemyHero();
     }
 
     void BuildSpeedControl()
