@@ -9,6 +9,9 @@ public sealed class HeroAbilitySlot
     public string displayName = "Locked";
     public Sprite icon;
     [Min(0f)] public float cooldown;
+    [Min(0)] public int rank;
+    [Min(0)] public int maximumRank;
+    public bool implemented;
     [NonSerialized] public bool unlocked;
 }
 
@@ -17,13 +20,16 @@ public sealed class HeroAbilityLoadout : MonoBehaviour
 {
     public HeroAbilitySlot[] slots =
     {
-        new HeroAbilitySlot { slot = 1, requiredHeroLevel = 1, displayName = "Fireball" },
+        new HeroAbilitySlot { slot = 1, requiredHeroLevel = 1, displayName = "Fireball", rank = 1, maximumRank = 3, implemented = true },
         new HeroAbilitySlot { slot = 2, requiredHeroLevel = 2, displayName = "Locked" },
         new HeroAbilitySlot { slot = 3, requiredHeroLevel = 4, displayName = "Locked" },
         new HeroAbilitySlot { slot = 4, requiredHeroLevel = 6, displayName = "Locked" }
     };
 
     public FireballAbility fireball;
+    [Range(0f, 1f)] public float fireballDamageBonusPerRank = .15f;
+    public int FireballRank => slots != null && slots.Length > 0 ? slots[0].rank : 1;
+    public float FireballDamageMultiplier => 1f + Mathf.Max(0, FireballRank - 1) * fireballDamageBonusPerRank;
 
     void Awake()
     {
@@ -48,15 +54,53 @@ public sealed class HeroAbilityLoadout : MonoBehaviour
         return slotIndex >= 1 && slotIndex <= slots.Length && slots[slotIndex - 1].unlocked;
     }
 
+    public bool CanUpgrade(int slotIndex, HeroProgression progression)
+    {
+        EnsureSlots();
+        if (!progression || progression.UnspentSkillPoints <= 0 || slotIndex < 1 || slotIndex > slots.Length)
+            return false;
+        HeroAbilitySlot ability = slots[slotIndex - 1];
+        return ability.implemented && ability.unlocked && ability.rank < ability.maximumRank;
+    }
+
+    public bool TryUpgrade(int slotIndex, HeroProgression progression)
+    {
+        if (!CanUpgrade(slotIndex, progression) || !progression.TrySpendSkillPoint()) return false;
+        slots[slotIndex - 1].rank++;
+        progression.RecalculateDerivedStats(true);
+        return true;
+    }
+
+    public void ResetRanks()
+    {
+        EnsureSlots();
+        for (int i = 0; i < slots.Length; i++) slots[i].rank = i == 0 ? 1 : 0;
+        RefreshUnlocks(1);
+    }
+
     void EnsureSlots()
     {
-        if (slots != null && slots.Length == 4) return;
-        slots = new[]
+        if (slots == null || slots.Length != 4)
+            slots = new[]
         {
-            new HeroAbilitySlot { slot = 1, requiredHeroLevel = 1, displayName = "Fireball" },
+            new HeroAbilitySlot { slot = 1, requiredHeroLevel = 1, displayName = "Fireball", rank = 1, maximumRank = 3, implemented = true },
             new HeroAbilitySlot { slot = 2, requiredHeroLevel = 2, displayName = "Locked" },
             new HeroAbilitySlot { slot = 3, requiredHeroLevel = 4, displayName = "Locked" },
             new HeroAbilitySlot { slot = 4, requiredHeroLevel = 6, displayName = "Locked" }
         };
+        slots[0].slot = 1;
+        slots[0].requiredHeroLevel = 1;
+        slots[0].displayName = "Fireball";
+        slots[0].implemented = true;
+        slots[0].maximumRank = 3;
+        slots[0].rank = Mathf.Clamp(slots[0].rank <= 0 ? 1 : slots[0].rank, 1, 3);
+        for (int i = 1; i < slots.Length; i++)
+        {
+            slots[i].slot = i + 1;
+            slots[i].requiredHeroLevel = i == 1 ? 2 : i == 2 ? 4 : 6;
+            slots[i].implemented = false;
+            slots[i].maximumRank = 0;
+            slots[i].rank = 0;
+        }
     }
 }

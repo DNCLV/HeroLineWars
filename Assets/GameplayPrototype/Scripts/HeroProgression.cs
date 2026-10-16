@@ -1,5 +1,7 @@
 using UnityEngine;
 
+public enum HeroAttribute { Strength, Agility, Intelligence, Stamina }
+
 /// <summary>Reusable hero health, attributes, experience, levels, and derived-stat recalculation.</summary>
 public sealed class HeroProgression : MonoBehaviour
 {
@@ -12,12 +14,6 @@ public sealed class HeroProgression : MonoBehaviour
     [Min(0)] public int startingAgility = 10;
     [Min(0)] public int startingIntelligence = 16;
     [Min(0)] public int startingStamina = 14;
-
-    [Header("Growth per level")]
-    [Min(0)] public int strengthGrowth = 2;
-    [Min(0)] public int agilityGrowth = 1;
-    [Min(0)] public int intelligenceGrowth = 2;
-    [Min(0)] public int staminaGrowth = 2;
 
     [Header("Derived-stat formulas")]
     [Min(1)] public int baseMaximumHealth = 240;
@@ -43,6 +39,7 @@ public sealed class HeroProgression : MonoBehaviour
     public int Agility { get; private set; }
     public int Intelligence { get; private set; }
     public int Stamina { get; private set; }
+    public int UnspentSkillPoints { get; private set; }
     public int ExperienceToNextLevel => ExperienceRequiredForLevel(Level);
     public bool IsPlayerHero => isPlayerHero;
     public float LastCombatTime { get; private set; } = float.NegativeInfinity;
@@ -97,7 +94,10 @@ public sealed class HeroProgression : MonoBehaviour
         Agility = startingAgility;
         Intelligence = startingIntelligence;
         Stamina = startingStamina;
+        UnspentSkillPoints = 0;
         LastCombatTime = float.NegativeInfinity;
+        if (!abilityLoadout) abilityLoadout = GetComponent<HeroAbilityLoadout>();
+        if (abilityLoadout) abilityLoadout.ResetRanks();
         RecalculateDerivedStats(false);
     }
 
@@ -113,12 +113,27 @@ public sealed class HeroProgression : MonoBehaviour
         {
             Experience -= ExperienceToNextLevel;
             Level++;
-            Strength += strengthGrowth;
-            Agility += agilityGrowth;
-            Intelligence += intelligenceGrowth;
-            Stamina += staminaGrowth;
+            UnspentSkillPoints++;
             RecalculateDerivedStats(true);
         }
+    }
+
+    public bool TryUpgradeAttribute(HeroAttribute attribute)
+    {
+        if (!TrySpendSkillPoint()) return false;
+        if (attribute == HeroAttribute.Strength) Strength++;
+        else if (attribute == HeroAttribute.Agility) Agility++;
+        else if (attribute == HeroAttribute.Intelligence) Intelligence++;
+        else Stamina++;
+        RecalculateDerivedStats(true);
+        return true;
+    }
+
+    public bool TrySpendSkillPoint()
+    {
+        if (UnspentSkillPoints <= 0) return false;
+        UnspentSkillPoints--;
+        return true;
     }
 
     public static void AwardNearbyExperience(Vector3 defeatedPosition, UnitArchetype archetype)
@@ -148,9 +163,12 @@ public sealed class HeroProgression : MonoBehaviour
                 baseAttackInterval / (1f + Agility * attackSpeedPerAgility));
         }
         if (!fireball) fireball = GetComponent<FireballAbility>();
-        if (fireball)
-            fireball.damage = Mathf.Max(1, Mathf.RoundToInt(baseSpellDamage + Intelligence * spellDamagePerIntelligence));
         if (!abilityLoadout) abilityLoadout = GetComponent<HeroAbilityLoadout>();
+        float spellDamage = baseSpellDamage *
+            (abilityLoadout ? abilityLoadout.FireballDamageMultiplier : 1f) +
+            Intelligence * spellDamagePerIntelligence;
+        if (fireball)
+            fireball.damage = Mathf.Max(1, Mathf.RoundToInt(spellDamage));
         if (abilityLoadout) abilityLoadout.RefreshUnlocks(Level);
     }
 

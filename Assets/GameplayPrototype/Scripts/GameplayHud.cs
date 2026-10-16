@@ -8,7 +8,7 @@ using System.Collections.Generic;
 [DefaultExecutionOrder(-50)]
 public sealed class GameplayHud : MonoBehaviour
 {
-    const int HudLayoutVersion = 16;
+    const int HudLayoutVersion = 17;
     [Min(120f)] public float abilityButtonSize = 176f;
     [Min(96f)] public float autoAttackButtonSize = 136f;
     [Min(64f)] public float abilitySlotSize = 78f;
@@ -65,6 +65,8 @@ public sealed class GameplayHud : MonoBehaviour
     Button speedToggle;
     Button fireballButton;
     Button autoAttackButton;
+    Button statsToggleButton;
+    Button fireballUpgradeButton;
     Button archerButton;
     Button knightButton;
     Button wizardButton;
@@ -97,9 +99,14 @@ public sealed class GameplayHud : MonoBehaviour
     Image heroExperienceFill;
     readonly Image[] futureAbilitySlots = new Image[3];
     readonly Text[] futureAbilityLabels = new Text[3];
+    readonly Button[] attributeUpgradeButtons = new Button[4];
+    readonly Text[] attributeValueLabels = new Text[4];
+    Text skillPointLabel;
+    Text statsToggleLabel;
     GameObject unitsPanel;
     GameObject itemsPanel;
     GameObject resultPanel;
+    GameObject statsPanel;
     SchematicMinimapHud minimapHud;
     float activeMinimapWidth;
     float activeMinimapHeight;
@@ -244,6 +251,7 @@ public sealed class GameplayHud : MonoBehaviour
                 HeroProgression.PlayerHero.Health && !HeroProgression.PlayerHero.Health.IsDead;
         UpdateFireball(running);
         UpdateHeroProgression();
+        UpdateSkillUpgradeHud();
         UpdateHeroFocusCards();
         UpdateSpeedVisual();
         if (sender)
@@ -363,6 +371,7 @@ public sealed class GameplayHud : MonoBehaviour
         BuildItemsPanel();
         BuildAbilityControls();
         BuildHeroProgressionPanel();
+        BuildSkillUpgradeControls();
         BuildResultPanel();
         builtHudLayoutVersion = HudLayoutVersion;
     }
@@ -696,6 +705,7 @@ public sealed class GameplayHud : MonoBehaviour
         MobileButtonPressFeedback fireballPress = fireballButton.gameObject.AddComponent<MobileButtonPressFeedback>();
         fireballPress.Configure(fireballButton);
         fireballButton.onClick.AddListener(ToggleFireballTargeting);
+        CreateFireballUpgradeBadge();
 
         CreatePlaceholderAbility("AbilitySlot2",
             new Vector2(-safeAreaPadding - primarySize - 4f, clusterBottom + 94f),
@@ -785,6 +795,109 @@ public sealed class GameplayHud : MonoBehaviour
         frame.preserveAspect = false;
     }
 
+    void BuildSkillUpgradeControls()
+    {
+        CreateButton("StatsToggleButton", safeRoot, "STATS +", new Vector2(-350f, safeAreaPadding),
+            new Vector2(118f, 46f), false, Cyan, out statsToggleButton, out statsToggleLabel, true);
+        statsToggleButton.onClick.AddListener(ToggleStatsPanel);
+
+        statsPanel = CreatePanel("HeroStatsPanel", safeRoot, Vector2.zero,
+            new Vector2(280f, 220f), TextAnchor.LowerLeft);
+        RectTransform panelRect = statsPanel.GetComponent<RectTransform>();
+        panelRect.anchorMin = panelRect.anchorMax = new Vector2(1f, 0f);
+        panelRect.pivot = new Vector2(1f, 0f);
+        panelRect.anchoredPosition = new Vector2(-350f, safeAreaPadding + 54f);
+        skillPointLabel = CreateText("SkillPoints", statsPanel.transform, "SKILL POINTS: 0",
+            new Vector2(0f, 88f), new Vector2(250f, 28f), 15,
+            TextAnchor.MiddleCenter, Gold, false);
+        CreateAttributeRow(0, "STR", HeroAttribute.Strength, 52f);
+        CreateAttributeRow(1, "AGI", HeroAttribute.Agility, 14f);
+        CreateAttributeRow(2, "INT", HeroAttribute.Intelligence, -24f);
+        CreateAttributeRow(3, "STA", HeroAttribute.Stamina, -62f);
+        statsPanel.SetActive(false);
+    }
+
+    void CreateAttributeRow(int index, string abbreviation, HeroAttribute attribute, float y)
+    {
+        CreateText(abbreviation + "Label", statsPanel.transform, abbreviation,
+            new Vector2(-82f, y), new Vector2(64f, 30f), 15,
+            TextAnchor.MiddleLeft, Color.white, false);
+        attributeValueLabels[index] = CreateText(abbreviation + "Value", statsPanel.transform, "0",
+            new Vector2(15f, y), new Vector2(70f, 30f), 15,
+            TextAnchor.MiddleCenter, new Color(.7f, .9f, 1f), false);
+        CreateButton(abbreviation + "Upgrade", statsPanel.transform, "+",
+            new Vector2(218f, y + 95f), new Vector2(42f, 32f), false, Cyan,
+            out attributeUpgradeButtons[index], out _);
+        attributeUpgradeButtons[index].onClick.AddListener(() => UpgradeAttribute(attribute));
+    }
+
+    void CreateFireballUpgradeBadge()
+    {
+        GameObject badge = new GameObject("FireballUpgradeBadge", typeof(RectTransform), typeof(Image),
+            typeof(Button), typeof(Outline));
+        badge.transform.SetParent(fireballButton.transform, false);
+        RectTransform rect = badge.GetComponent<RectTransform>();
+        rect.anchorMin = rect.anchorMax = new Vector2(1f, 1f);
+        rect.pivot = new Vector2(.5f, .5f);
+        rect.anchoredPosition = new Vector2(-5f, -5f);
+        rect.sizeDelta = new Vector2(30f, 30f);
+        Image image = badge.GetComponent<Image>();
+        image.sprite = circleSprite;
+        image.color = new Color(.12f, .72f, .92f, 1f);
+        fireballUpgradeButton = badge.GetComponent<Button>();
+        fireballUpgradeButton.targetGraphic = image;
+        fireballUpgradeButton.onClick.AddListener(UpgradeFireball);
+        MobileButtonPressFeedback feedback = badge.AddComponent<MobileButtonPressFeedback>();
+        feedback.Configure(fireballUpgradeButton);
+        Outline outline = badge.GetComponent<Outline>();
+        outline.effectColor = new Color(.7f, .96f, 1f, 1f);
+        outline.effectDistance = new Vector2(1f, 1f);
+        Text plus = CreateText("Plus", badge.transform, "+", Vector2.zero,
+            new Vector2(28f, 28f), 20, TextAnchor.MiddleCenter, Color.white, false);
+        plus.raycastTarget = false;
+        badge.SetActive(false);
+    }
+
+    void ToggleStatsPanel()
+    {
+        if (!statsPanel) return;
+        bool open = !statsPanel.activeSelf;
+        statsPanel.SetActive(open);
+        if (!open) return;
+        if (unitsPanel) unitsPanel.SetActive(false);
+        if (itemsPanel) itemsPanel.SetActive(false);
+    }
+
+    void UpgradeAttribute(HeroAttribute attribute)
+    {
+        if (heroProgression && heroProgression.TryUpgradeAttribute(attribute)) UpdateSkillUpgradeHud();
+    }
+
+    void UpgradeFireball()
+    {
+        if (abilityLoadout && abilityLoadout.TryUpgrade(1, heroProgression)) UpdateSkillUpgradeHud();
+    }
+
+    void UpdateSkillUpgradeHud()
+    {
+        int points = heroProgression ? heroProgression.UnspentSkillPoints : 0;
+        if (skillPointLabel) skillPointLabel.text = $"SKILL POINTS: {points}";
+        if (statsToggleLabel) statsToggleLabel.text = points > 0 ? $"STATS +  {points}" : "STATS +";
+        int strength = heroProgression ? heroProgression.Strength : 0;
+        int agility = heroProgression ? heroProgression.Agility : 0;
+        int intelligence = heroProgression ? heroProgression.Intelligence : 0;
+        int stamina = heroProgression ? heroProgression.Stamina : 0;
+        int[] values = { strength, agility, intelligence, stamina };
+        for (int i = 0; i < attributeValueLabels.Length; i++)
+        {
+            if (attributeValueLabels[i]) attributeValueLabels[i].text = values[i].ToString();
+            if (attributeUpgradeButtons[i]) attributeUpgradeButtons[i].interactable = points > 0;
+        }
+        if (fireballUpgradeButton)
+            fireballUpgradeButton.gameObject.SetActive(abilityLoadout &&
+                abilityLoadout.CanUpgrade(1, heroProgression));
+    }
+
     void UpdateHeroProgression()
     {
         if (!heroProgression) return;
@@ -801,8 +914,8 @@ public sealed class GameplayHud : MonoBehaviour
                 ? new Color(.25f, .62f, .78f, .92f) : new Color(.18f, .24f, .32f, .78f);
             if (futureAbilityLabels[i])
             {
-                futureAbilityLabels[i].text = unlocked ? "OPEN" : $"Lv {requirements[i]}";
-                futureAbilityLabels[i].color = unlocked ? new Color(.75f, .95f, 1f) : new Color(.55f, .64f, .72f);
+                futureAbilityLabels[i].text = unlocked ? "SOON" : $"Lv {requirements[i]}";
+                futureAbilityLabels[i].color = unlocked ? new Color(.58f, .72f, .8f) : new Color(.55f, .64f, .72f);
             }
         }
     }
@@ -827,7 +940,8 @@ public sealed class GameplayHud : MonoBehaviour
         bool targeting = ability && ability.IsTargeting;
         float remaining = ability ? ability.CooldownRemaining : 0f;
         fireballView.SetInteractable(running && ability && (targeting || remaining <= 0f));
-        fireballView.SetLabel(targeting ? "AIM / TAP" : "FIREBALL");
+        int fireballRank = abilityLoadout ? abilityLoadout.FireballRank : 1;
+        fireballView.SetLabel(targeting ? "AIM / TAP" : $"FIREBALL {fireballRank}");
         float cooldownFraction = ability && ability.cooldown > 0f ? remaining / ability.cooldown : 0f;
         fireballView.SetCooldown(cooldownFraction, Mathf.CeilToInt(remaining));
         fireballView.SetSelected(targeting);
@@ -851,6 +965,7 @@ public sealed class GameplayHud : MonoBehaviour
         bool open = !unitsPanel.activeSelf;
         unitsPanel.SetActive(open);
         itemsPanel.SetActive(false);
+        if (statsPanel) statsPanel.SetActive(false);
         SetButtonSelected(unitsToggle, unitsToggleSelected, open);
         SetButtonSelected(itemsToggle, itemsToggleSelected, false);
         SetButtonColors(unitsToggle, open ? Cyan : Blue);
@@ -862,6 +977,7 @@ public sealed class GameplayHud : MonoBehaviour
         bool open = !itemsPanel.activeSelf;
         itemsPanel.SetActive(open);
         unitsPanel.SetActive(false);
+        if (statsPanel) statsPanel.SetActive(false);
         SetButtonSelected(itemsToggle, itemsToggleSelected, open);
         SetButtonSelected(unitsToggle, unitsToggleSelected, false);
         SetButtonColors(itemsToggle, open ? Cyan : Blue);
@@ -926,6 +1042,7 @@ public sealed class GameplayHud : MonoBehaviour
         {
             unitsPanel.SetActive(false);
             itemsPanel.SetActive(false);
+            if (statsPanel) statsPanel.SetActive(false);
             SetButtonSelected(unitsToggle, unitsToggleSelected, false);
             SetButtonSelected(itemsToggle, itemsToggleSelected, false);
             SetButtonColors(unitsToggle, Blue);
