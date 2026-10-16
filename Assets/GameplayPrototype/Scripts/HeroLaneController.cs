@@ -113,8 +113,20 @@ public sealed class HeroLaneController : MonoBehaviour
         if (finalTarget && distance <= stoppingDistance && planarVelocity.magnitude > desiredSpeed)
             planarVelocity = Vector2.ClampMagnitude(planarVelocity, desiredSpeed);
         IsMoving = planarVelocity.sqrMagnitude > .0025f || distance > stoppingDistance;
-        local.x += planarVelocity.x * Time.deltaTime;
-        local.z += planarVelocity.y * Time.deltaTime;
+        Vector2 movement = planarVelocity * Time.deltaTime;
+        float maximumTravel = finalTarget ? Mathf.Max(0f, distance - stoppingDistance) : distance;
+        if (movement.magnitude > maximumTravel)
+            movement = movement.sqrMagnitude > .000001f
+                ? movement.normalized * maximumTravel : Vector2.zero;
+        Vector3 nextLocal = local;
+        nextLocal.x += movement.x;
+        nextLocal.z += movement.y;
+        if (!lane.IsPointInRoad(allowedLaneIndex, nextLocal.x, nextLocal.z, boundaryInset))
+        {
+            CancelMovement();
+            return;
+        }
+        local = nextLocal;
         local.y = 0f;
         transform.position = lane.transform.TransformPoint(local);
         if (planarVelocity.sqrMagnitude > .01f)
@@ -213,7 +225,7 @@ public sealed class HeroLaneController : MonoBehaviour
         for (int i = 0; i <= steps; i++)
         {
             Vector2 point = Vector2.Lerp(a, b, i / (float)steps);
-            if (!lane.IsWalkable(point.x, point.y)) return false;
+            if (!lane.IsPointInRoad(allowedLaneIndex, point.x, point.y, boundaryInset)) return false;
         }
         return true;
     }
