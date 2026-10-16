@@ -9,10 +9,10 @@ using UnityEditor;
 [ExecuteAlways]
 public partial class LaneGenerator : MonoBehaviour
 {
-    public const string GenerationVersion = "ClassicTwoLaneV1";
+    public const string GenerationVersion = "ClassicTwoLaneV2";
     [Header("Lane")]
-    [Min(64)] public int laneLength = 128;
-    [Min(6)] public int laneWidth = 10;
+    [Min(64)] public int laneLength = 96;
+    [Min(6)] public int laneWidth = 15;
     [Min(0.25f)] public float cellSize = 1f;
     [Header("Classic two-lane battlefield")]
     [HideInInspector] public int battleLaneCount = 2;
@@ -124,8 +124,10 @@ public partial class LaneGenerator : MonoBehaviour
         // compiles, so upgrade their in-memory values before saving the layout.
         if (!transform.Find(GenerationVersion))
         {
-            laneLength = Mathf.Max(128, laneLength);
-            laneWidth = Mathf.Max(10, laneWidth);
+            // ClassicTwoLaneV2 is the requested 1.5x wider / .75x shorter
+            // revision of the serialized 10 x 128 battlefield.
+            laneLength = 96;
+            laneWidth = 15;
         }
         battleLaneCount = 2;
         laneGap = Mathf.Max(18f, laneGap);
