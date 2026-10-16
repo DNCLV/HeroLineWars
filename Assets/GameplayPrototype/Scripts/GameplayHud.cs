@@ -503,10 +503,10 @@ public sealed class GameplayHud : MonoBehaviour
         fanInputBlocker.color = Color.clear;
         fanInputBlocker.raycastTarget = true;
         unitsPanel.SetActive(false);
-        CreatePurchaseCard("SendArcherButton", "A", "ARCHER", new Vector2(8f, 154f),
-            ArcherAccent, buttonGreenSprite, out archerButton, out archerLabel);
-        CreatePurchaseCard("SendKnightButton", "K", "KNIGHT", new Vector2(118f, 212f),
+        CreatePurchaseCard("SendKnightButton", "K", "KNIGHT", new Vector2(8f, 154f),
             KnightAccent, buttonCyanSprite, out knightButton, out knightLabel);
+        CreatePurchaseCard("SendArcherButton", "A", "ARCHER", new Vector2(118f, 212f),
+            ArcherAccent, buttonGreenSprite, out archerButton, out archerLabel);
         CreatePurchaseCard("SendWizardButton", "W", "WIZARD", new Vector2(228f, 154f),
             WizardAccent, buttonPurpleSprite, out wizardButton, out wizardLabel);
         archerButton.onClick.AddListener(SendArcher);

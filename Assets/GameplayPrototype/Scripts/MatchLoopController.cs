@@ -12,7 +12,7 @@ public sealed class MatchLoopController : MonoBehaviour
     [Min(0)] public int startingIncome = 1;
     [Min(.1f)] public float payoutInterval = 10f;
     [Tooltip("Each cumulative block of Gold spent on successful allied purchases grants +1 Income.")]
-    [Min(1)] public int goldSpentPerIncome = 25;
+    [Min(1)] public int goldSpentPerIncome = 2;
     [Tooltip("Editor/development-build event logs for payouts, purchases, and kill rewards.")]
     public bool enableEconomyDiagnostics;
 
@@ -44,12 +44,14 @@ public sealed class MatchLoopController : MonoBehaviour
     float payoutCountdown;
     float elapsedTime;
     bool restarting;
+    [SerializeField, HideInInspector] int economyBalanceRevision;
 
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
     static void ResetStaticState() { Current = null; }
 
     void Awake()
     {
+        UpgradeEconomyBalance();
         if (Current && Current != this)
         {
             Debug.LogError("Multiple MatchLoopControllers are active. Keep one under GameplayPrototype.", this);
@@ -61,6 +63,16 @@ public sealed class MatchLoopController : MonoBehaviour
         sender = GetComponent<FriendlyUnitSender>();
         MatchNumber = 1;
         ResetMatchValues();
+    }
+
+    public void UpgradeEconomyBalance()
+    {
+        if (economyBalanceRevision >= 1) return;
+        startingGold = 8;
+        startingIncome = 1;
+        payoutInterval = 10f;
+        goldSpentPerIncome = 2;
+        economyBalanceRevision = 1;
     }
 
     void OnDestroy()

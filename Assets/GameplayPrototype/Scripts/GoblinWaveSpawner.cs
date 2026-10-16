@@ -52,9 +52,9 @@ public sealed class GoblinWaveSpawner : MonoBehaviour
     [Min(.1f)] public float selectionRingSize = 1.15f;
 
     [Header("Allied combat profiles")]
-    public CombatProfile archerStats = new CombatProfile(90, 13, 1f, 5f, 2.6f);
-    public CombatProfile knightStats = new CombatProfile(260, 18, 1.3f, 1.5f, 2f);
-    public CombatProfile wizardStats = new CombatProfile(110, 20, 1.8f, 4.5f, 2.35f, 3, 2.6f);
+    public CombatProfile archerStats = new CombatProfile(95, 16, 1f, 5f, 2.6f);
+    public CombatProfile knightStats = new CombatProfile(150, 10, 1.2f, 1.5f, 2f);
+    public CombatProfile wizardStats = new CombatProfile(80, 14, 1.6f, 4.5f, 2.35f, 3, 2.6f);
 
     [Header("Enemy base combat profiles")]
     public CombatProfile goblinStats = new CombatProfile(65, 8, 1f, 0f, 2.2f);
@@ -100,6 +100,7 @@ public sealed class GoblinWaveSpawner : MonoBehaviour
     int skeletonKingsSpawned;
     int undeadDragonsSpawned;
     static GoblinWaveSpawner activeDirector;
+    [SerializeField, HideInInspector] int alliedBalanceRevision;
 
     public int TotalEnemiesSpawned => spawnSequence;
     public int GoblinsSpawned => goblinsSpawned;
@@ -131,6 +132,7 @@ public sealed class GoblinWaveSpawner : MonoBehaviour
 
     void Start()
     {
+        UpgradeAlliedBalance();
         EnsureProfileDefaults();
         if (!lane) lane = FindAnyObjectByType<LaneGenerator>();
         if (!matchLoop) matchLoop = GetComponent<MatchLoopController>();
@@ -142,6 +144,15 @@ public sealed class GoblinWaveSpawner : MonoBehaviour
         }
         if (!matchLoop) matchLoop = gameObject.AddComponent<MatchLoopController>();
         if (!matchLoop || matchLoop.IsRunning) StartMatchSpawns();
+    }
+
+    public void UpgradeAlliedBalance()
+    {
+        if (alliedBalanceRevision >= 1) return;
+        archerStats = new CombatProfile(95, 16, 1f, 5f, 2.6f);
+        knightStats = new CombatProfile(150, 10, 1.2f, 1.5f, 2f);
+        wizardStats = new CombatProfile(80, 14, 1.6f, 4.5f, 2.35f, 3, 2.6f);
+        alliedBalanceRevision = 1;
     }
 
     public void StopWaveSpawning() { StopAllCoroutines(); }
@@ -462,9 +473,9 @@ public sealed class GoblinWaveSpawner : MonoBehaviour
 
     void EnsureProfileDefaults()
     {
-        if (archerStats.hitPoints <= 0) archerStats = new CombatProfile(90, 13, 1f, 5f, 2.6f);
-        if (knightStats.hitPoints <= 0) knightStats = new CombatProfile(260, 18, 1.3f, 1.5f, 2f);
-        if (wizardStats.hitPoints <= 0) wizardStats = new CombatProfile(110, 20, 1.8f, 4.5f, 2.35f, 3, 2.6f);
+        if (archerStats.hitPoints <= 0) archerStats = new CombatProfile(95, 16, 1f, 5f, 2.6f);
+        if (knightStats.hitPoints <= 0) knightStats = new CombatProfile(150, 10, 1.2f, 1.5f, 2f);
+        if (wizardStats.hitPoints <= 0) wizardStats = new CombatProfile(80, 14, 1.6f, 4.5f, 2.35f, 3, 2.6f);
         if (goblinStats.hitPoints <= 0) goblinStats = new CombatProfile(65, 8, 1f, 0f, 2.2f);
         if (ghoulStats.hitPoints <= 0) ghoulStats = new CombatProfile(130, 13, 1.2f, 0f, 2f);
         if (skeletonKingStats.hitPoints <= 0) skeletonKingStats = new CombatProfile(330, 24, 1.5f, 0f, 1.65f);

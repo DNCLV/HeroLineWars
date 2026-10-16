@@ -85,13 +85,16 @@ public static class GameplayPrototypeEditor
         sender.blueWizardPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(wizardPath);
         // Normalize Survival v2 economy and director values on every setup run.
         // Combat profiles and unrelated Inspector settings are deliberately preserved.
-        sender.archerCost = 5;
-        sender.knightCost = 9;
-        sender.wizardCost = 14;
+        sender.archerCost = 4;
+        sender.knightCost = 2;
+        sender.wizardCost = 6;
+        sender.UpgradePurchaseBalance();
         matchLoop.startingGold = 8;
         matchLoop.startingIncome = 1;
         matchLoop.payoutInterval = 10f;
-        matchLoop.goldSpentPerIncome = 25;
+        matchLoop.goldSpentPerIncome = 2;
+        matchLoop.UpgradeEconomyBalance();
+        spawner.UpgradeAlliedBalance();
         matchLoop.survivalDuration = 360f;
         spawner.minuteOneSpawnCount = 12;
         spawner.minuteTwoSpawnCount = 18;
@@ -140,13 +143,16 @@ public static class GameplayPrototypeEditor
         sender.spawner = spawner;
         sender.matchLoop = matchLoop;
         hud.matchLoop = matchLoop;
-        sender.archerCost = 5;
-        sender.knightCost = 9;
-        sender.wizardCost = 14;
+        sender.archerCost = 4;
+        sender.knightCost = 2;
+        sender.wizardCost = 6;
+        sender.UpgradePurchaseBalance();
         matchLoop.startingGold = 8;
         matchLoop.startingIncome = 1;
         matchLoop.payoutInterval = 10f;
-        matchLoop.goldSpentPerIncome = 25;
+        matchLoop.goldSpentPerIncome = 2;
+        matchLoop.UpgradeEconomyBalance();
+        spawner.UpgradeAlliedBalance();
         matchLoop.survivalDuration = 360f;
         spawner.minuteOneSpawnCount = 12;
         spawner.minuteTwoSpawnCount = 18;

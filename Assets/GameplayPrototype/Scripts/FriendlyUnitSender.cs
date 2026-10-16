@@ -12,9 +12,9 @@ public sealed class FriendlyUnitSender : MonoBehaviour
     [Min(.1f)] public float spawnRowSpacing = 1f;
 
     [Header("Match purchase settings")]
-    [Min(0)] public int archerCost = 5;
-    [Min(0)] public int knightCost = 9;
-    [Min(0)] public int wizardCost = 14;
+    [Min(0)] public int archerCost = 4;
+    [Min(0)] public int knightCost = 2;
+    [Min(0)] public int wizardCost = 6;
 
     public int TotalSuccessfulPurchases { get; private set; }
     public int TotalFriendlyUnitsSpawned { get; private set; }
@@ -23,11 +23,22 @@ public sealed class FriendlyUnitSender : MonoBehaviour
     public int TotalGoldSpent => matchLoop ? matchLoop.TotalGoldSpent : 0;
     public int IncomeBonusesGranted => matchLoop ? matchLoop.IncomeBonusesGranted : 0;
     public int ActiveFriendlyCount => UnitCombatRegistry.Count(UnitTeam.Friendly);
+    [SerializeField, HideInInspector] int purchaseBalanceRevision;
 
     void Awake()
     {
+        UpgradePurchaseBalance();
         if (!spawner) spawner = GetComponent<GoblinWaveSpawner>();
         if (!matchLoop) matchLoop = GetComponent<MatchLoopController>();
+    }
+
+    public void UpgradePurchaseBalance()
+    {
+        if (purchaseBalanceRevision >= 1) return;
+        knightCost = 2;
+        archerCost = 4;
+        wizardCost = 6;
+        purchaseBalanceRevision = 1;
     }
 
     public void SendArcher() => Send(greenArcherPrefab, UnitArchetype.GreenArcher, archerCost);
