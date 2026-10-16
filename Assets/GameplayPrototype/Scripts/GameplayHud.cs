@@ -2,12 +2,13 @@ using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.InputSystem.UI;
 using UnityEngine.UI;
+using System.Collections.Generic;
 
 /// <summary>Responsive, safe-area-aware mobile overlay for the lane prototype.</summary>
 [DefaultExecutionOrder(-50)]
 public sealed class GameplayHud : MonoBehaviour
 {
-    const int HudLayoutVersion = 15;
+    const int HudLayoutVersion = 16;
     [Min(120f)] public float abilityButtonSize = 176f;
     [Min(96f)] public float autoAttackButtonSize = 136f;
     [Min(64f)] public float abilitySlotSize = 78f;
@@ -70,6 +71,10 @@ public sealed class GameplayHud : MonoBehaviour
     Button restartButton;
     Button enemyHeroFocusButton;
     Button playerHeroFocusButton;
+    Text enemyHeroFocusLevel;
+    Text playerHeroFocusLevel;
+    Image enemyHeroFocusGlow;
+    Image playerHeroFocusGlow;
     Image unitsToggleSelected;
     Image itemsToggleSelected;
     Image speedToggleGlow;
@@ -102,6 +107,9 @@ public sealed class GameplayHud : MonoBehaviour
     FireballAbility ability;
     HeroProgression heroProgression;
     HeroAbilityLoadout abilityLoadout;
+    HeroProgression enemyHeroProgression;
+    HlwCameraController cameraController;
+    readonly List<LaneUnitCombat> cameraCardUnits = new List<LaneUnitCombat>(64);
     FriendlyUnitSender sender;
     float nextReferenceSearch;
     int lastGold = -1;
@@ -219,6 +227,13 @@ public sealed class GameplayHud : MonoBehaviour
             if (!sender) sender = FindAnyObjectByType<FriendlyUnitSender>();
             if (!matchLoop) matchLoop = GetComponent<MatchLoopController>() ?? FindAnyObjectByType<MatchLoopController>();
             if (!heroProgression) heroProgression = HeroProgression.PlayerHero;
+            if (!cameraController)
+            {
+                Camera mainCamera = Camera.main;
+                cameraController = mainCamera ? mainCamera.GetComponent<HlwCameraController>() :
+                    FindAnyObjectByType<HlwCameraController>();
+            }
+            if (!enemyHeroProgression) ResolveEnemyHeroProgression();
             if (heroProgression && !abilityLoadout) abilityLoadout = heroProgression.GetComponent<HeroAbilityLoadout>();
             nextReferenceSearch = Time.unscaledTime + .25f;
         }
@@ -229,6 +244,7 @@ public sealed class GameplayHud : MonoBehaviour
                 HeroProgression.PlayerHero.Health && !HeroProgression.PlayerHero.Health.IsDead;
         UpdateFireball(running);
         UpdateHeroProgression();
+        UpdateHeroFocusCards();
         UpdateSpeedVisual();
         if (sender)
         {
@@ -408,29 +424,63 @@ public sealed class GameplayHud : MonoBehaviour
 
     void BuildCameraFocusControls()
     {
-        const float buttonHeight = 44f;
+        const float buttonHeight = 54f;
         const float gap = 8f;
         float firstY = -24f - activeMinimapHeight - gap;
-        CreateButton("EnemyHeroFocusButton", safeRoot, "ENEMY HERO", Vector2.zero,
-            new Vector2(activeMinimapWidth, buttonHeight), false, Crimson,
-            out enemyHeroFocusButton, out _, false);
-        PositionBelowMinimap(enemyHeroFocusButton, firstY);
-        enemyHeroFocusButton.onClick.AddListener(() => FocusCamera(false));
-
-        CreateButton("PlayerHeroFocusButton", safeRoot, "MY HERO", Vector2.zero,
-            new Vector2(activeMinimapWidth, buttonHeight), false, Cyan,
-            out playerHeroFocusButton, out _, false);
-        PositionBelowMinimap(playerHeroFocusButton, firstY - buttonHeight - gap);
+        CreateHeroFocusCard("PlayerHeroFocusCard", "MY HERO", "BATTLEMAGE", firstY,
+            Cyan, out playerHeroFocusButton, out playerHeroFocusLevel, out playerHeroFocusGlow);
         playerHeroFocusButton.onClick.AddListener(() => FocusCamera(true));
+        CreateHeroFocusCard("EnemyHeroFocusCard", "ENEMY HERO", "BATTLEMAGE",
+            firstY - buttonHeight - gap, Crimson, out enemyHeroFocusButton,
+            out enemyHeroFocusLevel, out enemyHeroFocusGlow);
+        enemyHeroFocusButton.onClick.AddListener(() => FocusCamera(false));
     }
 
-    static void PositionBelowMinimap(Button button, float y)
+    void CreateHeroFocusCard(string objectName, string title, string heroName, float y, Color accent,
+        out Button button, out Text levelLabel, out Image selectedGlow)
     {
-        if (!button) return;
-        RectTransform rect = button.GetComponent<RectTransform>();
+        GameObject card = new GameObject(objectName, typeof(RectTransform), typeof(Image),
+            typeof(Button), typeof(Outline));
+        card.transform.SetParent(safeRoot, false);
+        RectTransform rect = card.GetComponent<RectTransform>();
         rect.anchorMin = rect.anchorMax = new Vector2(0f, 1f);
         rect.pivot = new Vector2(0f, 1f);
         rect.anchoredPosition = new Vector2(24f, y);
+        rect.sizeDelta = new Vector2(activeMinimapWidth, 54f);
+        Image background = card.GetComponent<Image>();
+        background.sprite = capsuleSprite;
+        background.type = capsuleSprite ? Image.Type.Sliced : Image.Type.Simple;
+        background.color = ControlNavy;
+        background.raycastTarget = true;
+        AddShadow(background, new Color(0f, .01f, .03f, .65f), new Vector2(0f, -3f));
+        Outline outline = card.GetComponent<Outline>();
+        outline.effectColor = new Color(accent.r, accent.g, accent.b, .62f);
+        outline.effectDistance = new Vector2(1.25f, 1.25f);
+        button = card.GetComponent<Button>();
+        button.targetGraphic = background;
+        button.transition = Selectable.Transition.ColorTint;
+        SetButtonColors(button, accent);
+        MobileButtonPressFeedback feedback = card.AddComponent<MobileButtonPressFeedback>();
+        feedback.Configure(button);
+
+        selectedGlow = CreateImage("SelectedGlow", card.transform, capsuleSprite, Vector2.zero,
+            new Vector2(activeMinimapWidth + 6f, 60f), new Color(accent.r, accent.g, accent.b, 0f), false);
+        selectedGlow.type = capsuleSprite ? Image.Type.Sliced : Image.Type.Simple;
+        selectedGlow.transform.SetAsFirstSibling();
+        levelLabel = CreateText("HeroLevel", card.transform, "LV--", new Vector2(-126f, 0f),
+            new Vector2(54f, 38f), 15, TextAnchor.MiddleCenter, accent, false);
+        Image portrait = CreateImage("HeroPortrait", card.transform, circleSprite,
+            new Vector2(-78f, 0f), new Vector2(40f, 40f), Color.Lerp(ControlNavy, accent, .34f), false);
+        portrait.preserveAspect = true;
+        Text portraitGlyph = CreateText("PortraitGlyph", card.transform, "B", new Vector2(-78f, 0f),
+            new Vector2(36f, 36f), 18, TextAnchor.MiddleCenter, Color.white, false);
+        AddTextShadow(portraitGlyph);
+        Text titleText = CreateText("CardTitle", card.transform, title, new Vector2(25f, 10f),
+            new Vector2(162f, 22f), 14, TextAnchor.MiddleLeft, Color.white, false);
+        AddTextShadow(titleText);
+        CreateText("HeroName", card.transform, heroName, new Vector2(25f, -11f),
+            new Vector2(162f, 18f), 10, TextAnchor.MiddleLeft,
+            new Color(.62f, .72f, .82f, 1f), false);
     }
 
     void FocusCamera(bool playerHero)
@@ -439,8 +489,43 @@ public sealed class GameplayHud : MonoBehaviour
         HlwCameraController controller = mainCamera ? mainCamera.GetComponent<HlwCameraController>() : null;
         if (!controller) controller = FindAnyObjectByType<HlwCameraController>();
         if (!controller) return;
+        cameraController = controller;
         if (playerHero) controller.FocusOnPlayerHero();
         else controller.FocusOnEnemyHero();
+    }
+
+    void ResolveEnemyHeroProgression()
+    {
+        UnitCombatRegistry.CopyActiveUnits(cameraCardUnits);
+        for (int i = 0; i < cameraCardUnits.Count; i++)
+        {
+            LaneUnitCombat unit = cameraCardUnits[i];
+            if (!unit || unit.IsDead || !unit.Faction || unit.Faction.team != UnitTeam.Enemy ||
+                unit.Faction.archetype != UnitArchetype.Battlemage) continue;
+            enemyHeroProgression = unit.GetComponent<HeroProgression>();
+            return;
+        }
+    }
+
+    void UpdateHeroFocusCards()
+    {
+        if (playerHeroFocusLevel)
+            playerHeroFocusLevel.text = heroProgression && heroProgression.Health && !heroProgression.Health.IsDead
+                ? $"LV{heroProgression.Level}" : "LV--";
+        if (enemyHeroFocusLevel)
+            enemyHeroFocusLevel.text = enemyHeroProgression && enemyHeroProgression.Health && !enemyHeroProgression.Health.IsDead
+                ? $"LV{enemyHeroProgression.Level}" : "LV--";
+        HeroCameraFocus selected = cameraController ? cameraController.SelectedHeroFocus : HeroCameraFocus.None;
+        if (playerHeroFocusGlow)
+            playerHeroFocusGlow.color = selected == HeroCameraFocus.PlayerHero
+                ? new Color(Cyan.r, Cyan.g, Cyan.b, .3f) : new Color(Cyan.r, Cyan.g, Cyan.b, 0f);
+        if (enemyHeroFocusGlow)
+            enemyHeroFocusGlow.color = selected == HeroCameraFocus.EnemyHero
+                ? new Color(Crimson.r, Crimson.g, Crimson.b, .3f) : new Color(Crimson.r, Crimson.g, Crimson.b, 0f);
+        if (playerHeroFocusButton) playerHeroFocusButton.interactable = heroProgression &&
+            heroProgression.Health && !heroProgression.Health.IsDead;
+        if (enemyHeroFocusButton) enemyHeroFocusButton.interactable = enemyHeroProgression &&
+            enemyHeroProgression.Health && !enemyHeroProgression.Health.IsDead;
     }
 
     void BuildSpeedControl()

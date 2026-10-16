@@ -2,6 +2,8 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
+public enum HeroCameraFocus { None, PlayerHero, EnemyHero }
+
 [RequireComponent(typeof(Camera))]
 public class HlwCameraController : MonoBehaviour
 {
@@ -43,6 +45,7 @@ public class HlwCameraController : MonoBehaviour
     Vector3 focusTransitionStart;
     float focusTransitionElapsed;
     readonly List<LaneUnitCombat> focusCandidates = new List<LaneUnitCombat>(64);
+    public HeroCameraFocus SelectedHeroFocus { get; private set; }
 
     float MinimumZoom => Mathf.Min(minimumOrthographicSize, maximumOrthographicSize);
     float MaximumZoom => Mathf.Max(minimumOrthographicSize, maximumOrthographicSize);
@@ -146,9 +149,9 @@ public class HlwCameraController : MonoBehaviour
     {
         HeroProgression player = HeroProgression.PlayerHero;
         if (player && player.Health && !player.Health.IsDead)
-            return BeginFocusTransition(player.transform);
+            return BeginFocusTransition(player.transform, HeroCameraFocus.PlayerHero);
         HeroLaneController fallback = FindAnyObjectByType<HeroLaneController>();
-        return fallback && BeginFocusTransition(fallback.transform);
+        return fallback && BeginFocusTransition(fallback.transform, HeroCameraFocus.PlayerHero);
     }
 
     public bool FocusOnEnemyHero()
@@ -159,7 +162,7 @@ public class HlwCameraController : MonoBehaviour
             LaneUnitCombat unit = focusCandidates[i];
             if (unit && !unit.IsDead && unit.Faction && unit.Faction.team == UnitTeam.Enemy &&
                 unit.Faction.archetype == UnitArchetype.Battlemage)
-                return BeginFocusTransition(unit.transform);
+                return BeginFocusTransition(unit.transform, HeroCameraFocus.EnemyHero);
         }
         return false;
     }
@@ -168,15 +171,17 @@ public class HlwCameraController : MonoBehaviour
     {
         focusTransitionTarget = null;
         focusTransitionElapsed = 0f;
+        SelectedHeroFocus = HeroCameraFocus.None;
     }
 
-    bool BeginFocusTransition(Transform target)
+    bool BeginFocusTransition(Transform target, HeroCameraFocus focus)
     {
         if (!target || !lane) return false;
         focusTransitionTarget = target;
         focusTransitionStart = focusPoint;
         focusTransitionElapsed = 0f;
         hasFocus = true;
+        SelectedHeroFocus = focus;
         return true;
     }
 
@@ -197,7 +202,11 @@ public class HlwCameraController : MonoBehaviour
         destination.y = lane.transform.position.y + framingOffset.y;
         focusPoint = Vector3.Lerp(focusTransitionStart, destination, smoothProgress);
         ClampFocusPoint();
-        if (progress >= 1f) CancelFocusTransition();
+        if (progress >= 1f)
+        {
+            focusTransitionTarget = null;
+            focusTransitionElapsed = 0f;
+        }
     }
 
     void Apply()
