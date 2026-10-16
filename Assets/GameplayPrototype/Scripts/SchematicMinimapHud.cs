@@ -410,6 +410,10 @@ public sealed class MinimapViewportGraphic : MaskableGraphic
         new Vector2(0f, 0f), new Vector2(0f, 1f),
         new Vector2(1f, 1f), new Vector2(1f, 0f)
     };
+    Vector3 lastCameraPosition;
+    Quaternion lastCameraRotation;
+    float lastOrthographicSize = -1f;
+    float lastAspect = -1f;
 
     public void Configure(LaneGenerator laneGenerator, MinimapLaneGraphic mapGraphic)
     {
@@ -418,13 +422,37 @@ public sealed class MinimapViewportGraphic : MaskableGraphic
         gameplayCamera = Camera.main;
         color = new Color(.44f, .82f, 1f, .34f);
         raycastTarget = false;
+        CacheCameraState();
         SetVerticesDirty();
     }
 
     public void Refresh()
     {
         if (!gameplayCamera) gameplayCamera = Camera.main;
+        CacheCameraState();
         SetVerticesDirty();
+    }
+
+    void LateUpdate()
+    {
+        if (!gameplayCamera) gameplayCamera = Camera.main;
+        if (!gameplayCamera) return;
+        Transform cameraTransform = gameplayCamera.transform;
+        if ((cameraTransform.position - lastCameraPosition).sqrMagnitude < .000001f &&
+            Quaternion.Angle(cameraTransform.rotation, lastCameraRotation) < .001f &&
+            Mathf.Approximately(gameplayCamera.orthographicSize, lastOrthographicSize) &&
+            Mathf.Approximately(gameplayCamera.aspect, lastAspect)) return;
+        CacheCameraState();
+        SetVerticesDirty();
+    }
+
+    void CacheCameraState()
+    {
+        if (!gameplayCamera) return;
+        lastCameraPosition = gameplayCamera.transform.position;
+        lastCameraRotation = gameplayCamera.transform.rotation;
+        lastOrthographicSize = gameplayCamera.orthographicSize;
+        lastAspect = gameplayCamera.aspect;
     }
 
     protected override void OnPopulateMesh(VertexHelper vertexHelper)
