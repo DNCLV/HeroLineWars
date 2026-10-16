@@ -1,0 +1,958 @@
+VBCSCompilerPreWarmer: pre-warm launched (dotnet PID 26804)
+VBCSCompiler prewarm took 20.26 ms
+[Licensing::Module] Trying to connect to existing licensing client channel...
+Built from '6000.6/respin/6000.6.0f1-fa21a270ab12' branch; Version is '6000.6.0f1 (f7f8ed4d1e24) revision 16251117'; Using compiler version '194234433'; Build Type 'Release'
+[Licensing::IpcConnector] Successfully connected to: "LicenseClient-dnclv" at "2026-10-13T06:42:47.2408442Z"
+OS: 'Windows 11  (10.0.26200) Core' Language: 'da' Physical Memory: 24450 MB
+BatchMode: 1, IsHumanControllingUs: 0, StartBugReporterOnCrash: 0, Is64bit: 1
+System  architecture: x64
+Process architecture: x64
+Date: 2026-10-13T06:42:47Z
+[Licensing::Client] Code 10 while verifying Licensing Client signature (process Id: 41160, path: "C:/Program Files/Unity Hub/UnityLicensingClient_V1/Unity.Licensing.Client.exe")
+[Licensing::Module] LicensingClient has failed validation; ignoring
+[Licensing::Client] Handshaking with LicensingClient:
+  Version:                 1.18.3+d7ffd15
+  Session Id:              3ffa44b15f79416386055944083ea759
+  Correlation Id:          1206505c8c6b8139ca5d334db0e266d9
+  External correlation Id: 8195964925281872315
+  Machine Id:              KHY0nzG3PJ6NQXGzS1NGqm7KtfM=
+[Licensing::Module] Successfully connected to LicensingClient on channel: "LicenseClient-dnclv" (connect: 0.00s, validation: 0.00s, handshake: 0.16s)
+[Licensing::IpcConnector] Successfully connected to: "LicenseClient-dnclv-notifications" at "2026-10-13T06:42:47.4003316Z"
+[Licensing::Module] Error: Access token is unavailable; failed to update
+[Licensing::Client] Successfully resolved entitlement details
+[Licensing::Module] License group:
+  Id: 5774121861239-UnityPersXXXX
+  Product: Unity Personal
+  Type: Assigned
+  Expiration: Unlimited
+[Licensing::Client] Successfully updated license, isAsync: True, time: 0.01
+[Licensing::Client] Successfully resolved entitlement details
+[Licensing::Module] Licensing Background thread has ended after 0.24s
+
+COMMAND LINE ARGUMENTS:
+C:\Program Files\Unity\Hub\Editor\6000.6.0f1\Editor\Unity.exe
+-batchmode
+-projectPath
+D:\App\Hero Line Wars\Unity\HeroLineWars\Temp\HLWRepairValidation
+-executeMethod
+PolishValidation.Run
+-logFile
+D:\App\Hero Line Wars\Unity\HeroLineWars\Temp\HLWRepairValidation\polish-complete.log
+Successfully changed project path to: D:\App\Hero Line Wars\Unity\HeroLineWars\Temp\HLWRepairValidation
+D:/App/Hero Line Wars/Unity/HeroLineWars/Temp/HLWRepairValidation
+[UnityMemory] Configuration Parameters - Can be set up in boot.config
+    "memorysetup-temp-allocator-size-gi-baking-worker=262144"
+    "memorysetup-temp-allocator-size-gi-baking-worker=262144"
+    "memorysetup-temp-allocator-size-gi-baking-worker=262144"
+    "memorysetup-temp-allocator-size-gi-baking-worker=262144"
+    "memorysetup-temp-allocator-size-gi-baking-worker=262144"
+    "memorysetup-temp-allocator-size-nav-mesh-worker=65536"
+    "memorysetup-temp-allocator-size-audio-worker=65536"
+    "memorysetup-temp-allocator-size-cloud-worker=32768"
+    "memorysetup-temp-allocator-size-gfx=262144"
+    "memorysetup-remapper-allocator-initial-capacity=32768"
+    "memorysetup-temp-allocator-size-preload-manager=33554432"
+    "memorysetup-allocator-temp-initial-block-size-main=262144"
+    "memorysetup-allocator-temp-initial-block-size-worker=262144"
+    "memorysetup-temp-allocator-size-job-worker=262144"
+    "memorysetup-temp-allocator-size-background-worker=32768"
+    "memorysetup-bucket-allocator-granularity=16"
+    "memorysetup-bucket-allocator-bucket-count=8"
+    "memorysetup-bucket-allocator-block-size=33554432"
+    "memorysetup-bucket-allocator-block-count=8"
+    "memorysetup-main-allocator-block-size=16777216"
+    "memorysetup-thread-allocator-block-size=16777216"
+    "memorysetup-main-allocator-mimalloc-enabled=1"
+    "memorysetup-gfx-main-allocator-block-size=16777216"
+    "memorysetup-gfx-thread-allocator-block-size=16777216"
+    "memorysetup-cache-allocator-block-size=4194304"
+    "memorysetup-typetree-allocator-block-size=2097152"
+    "memorysetup-profiler-bucket-allocator-granularity=16"
+    "memorysetup-profiler-bucket-allocator-bucket-count=8"
+    "memorysetup-profiler-bucket-allocator-block-size=33554432"
+    "memorysetup-profiler-bucket-allocator-block-count=8"
+    "memorysetup-profiler-allocator-block-size=16777216"
+    "memorysetup-profiler-editor-allocator-block-size=1048576"
+    "memorysetup-temp-allocator-size-main=16777216"
+    "memorysetup-job-temp-allocator-block-size=2097152"
+    "memorysetup-job-temp-allocator-block-size-background=1048576"
+    "memorysetup-job-temp-allocator-reduction-small-platforms=262144"
+Logging is directed to a specific file, skipping project log.
+Player connection [23836]  Target information:
+
+Player connection [23836]  * "[IP] 192.168.68.105 [Port] 55505 [Flags] 2 [Guid] 1303066288 [EditorId] 1303066288 [Version] 1048832 [Id] WindowsEditor(7,Dan) [Debug] 1 [PackageName] WindowsEditor [ProjectName] Editor" 
+
+Player connection [23836] Host joined multi-casting on [225.0.0.222:54997]...
+Player connection [23836] Host joined alternative multi-casting on [225.0.0.222:34997]...
+Input System module state changed to: Initialized.
+[Physics::Module] Initialized fallback backend.
+[Physics::Module] Id: 0xdecafbad
+Initialising UDS system complete:
+  - System type: Client
+  - Resource namespace: af80ecac47aa6ca8bf3a08130a38a6cc
+  - Shared memory size: 1073741824
+  - Command buffer id: 1052576
+  - Command buffer size: 8192
+  - Hashmap size: 4194304
+  - Service connected: false
+[Package Manager] Connected to IPC stream "Upm-51492" after 1.3 seconds.
+[Licensing::Client] Successfully resolved entitlement details
+Library Redirect Path: Library/
+Launching Unity Data Store - C:/Program Files/Unity/Hub/Editor/6000.6.0f1/Editor/Data/Tools/Unity.DataStore.exe 
+Unity Data Store artifact dir = Library/DataStore, working dir = D:/App/Hero Line Wars/Unity/HeroLineWars/Temp/HLWRepairValidation[Physics::Module] Selected backend.
+[Physics::Module] Name: PhysX
+[Physics::Module] Id: 0xf2b8ea05
+[Physics::Module] SDK Version: 4.1.2
+[Physics::Module] Integration Version: 1.0.0
+[Physics::Module] Threading Mode: Multi-Threaded
+Unity Data Store running and initialised
+Initialize engine version: 6000.6.0f1 (f7f8ed4d1e24)
+[EntityIdStore] init: VM path (explicit commit), pageSize=4096, blockCount=1048576, entitiesPerBlock=256, slots reserved=4294967296 bytes
+[Subsystems] Discovering subsystems at path C:/Program Files/Unity/Hub/Editor/6000.6.0f1/Editor/Data/Resources/UnitySubsystems
+[Subsystems] Discovering subsystems at path D:/App/Hero Line Wars/Unity/HeroLineWars/Temp/HLWRepairValidation/Assets
+GfxDevice: creating device client; kGfxThreadingModeNonThreaded
+Direct3D:
+    Version:  Direct3D 11.0 [level 11.1]
+    Renderer: NVIDIA GeForce GTX 1050 Ti (ID=0x1c8c)
+    Vendor:   NVIDIA
+    VRAM:     4004 MB
+    Driver:   32.0.15.7700
+Initialize mono
+Mono path[0] = 'C:/Program Files/Unity/Hub/Editor/6000.6.0f1/Editor/Data/Managed'
+Mono path[1] = 'C:/Program Files/Unity/Hub/Editor/6000.6.0f1/Editor/Data/BCLExtensions/runtime/netstandard2.1'
+Mono path[2] = 'C:/Program Files/Unity/Hub/Editor/6000.6.0f1/Editor/Data/MonoBleedingEdge/lib/mono/unityjit-win32'
+Mono config path = 'C:/Program Files/Unity/Hub/Editor/6000.6.0f1/Editor/Data/MonoBleedingEdge/etc'
+Using monoOptions --debugger-agent=transport=dt_socket,embedding=1,server=y,suspend=n,address=127.0.0.1:56492
+CodeReloadManager initialized
+ImportWorker Server TCP listen port: 0
+AcceleratorClientConnectionCallback - disconnected - :0
+Begin MonoManager ReloadAssembly
+Registering precompiled unity dll's ...
+Register platform support module: C:/Program Files/Unity/Hub/Editor/6000.6.0f1/Editor/Data/PlaybackEngines/WebGLSupport/UnityEditor.WebGL.Extensions.dll
+Register platform support module: C:/Program Files/Unity/Hub/Editor/6000.6.0f1/Editor/Data/PlaybackEngines/WindowsStandaloneSupport/UnityEditor.WindowsStandalone.Extensions.dll
+Registered in 0.006709 seconds.
+Native extension for WindowsStandalone target not found
+Native extension for WebGL target not found
+Package Manager log level set to [2]
+ScheduleIndexationOnStartup MainProcess:False IndexOnStartup:False
+Scripting: successfully reloaded assembly
+- Finished resetting the current domain, in  3.124 seconds
+Domain Reload Profiling: 6735ms
+	BeginReloadAssembly (810ms)
+		CreateAndSetChildDomain (12ms)
+	RebuildCommonClasses (45ms)
+	RebuildNativeTypeToScriptingClass (102ms)
+	initialDomainReloadingComplete (353ms)
+	LoadAllAssembliesAndSetupDomain (2296ms)
+		LoadAssemblies (783ms)
+		TypeCache.Refresh (1636ms)
+			TypeCache.ScanAssembly (1556ms)
+		AnalyzeDomain (2ms)
+	FinalizeReload (3129ms)
+		SetupLoadedEditorAssemblies (0ms)
+			LogAssemblyErrors (6ms)
+			InitializePlatformSupportModulesInManaged (15ms)
+			BeforeProcessingInitializeOnLoad (556ms)
+			ProcessInitializeOnLoadAttributes (466ms)
+			ProcessInitializeOnLoadMethodAttributes (1024ms)
+[Licensing::Client] Successfully resolved entitlement details
+Application.AssetDatabase Initial Refresh Start
+[Package Manager] Restoring resolved packages state from cache
+[Licensing::Client] Successfully resolved entitlement details
+[Package Manager] Registered 59 packages:
+  Packages from [https://packages.unity.com]:
+    com.unity.ai.navigation@2.0.14 (location: D:\App\Hero Line Wars\Unity\HeroLineWars\Temp\HLWRepairValidation\Library\PackageCache\com.unity.ai.navigation@134dd6a3b97b)
+    com.unity.collab-proxy@2.13.6 (location: D:\App\Hero Line Wars\Unity\HeroLineWars\Temp\HLWRepairValidation\Library\PackageCache\com.unity.collab-proxy@4628d2ba6ea4)
+    com.unity.ide.rider@3.0.38 (location: D:\App\Hero Line Wars\Unity\HeroLineWars\Temp\HLWRepairValidation\Library\PackageCache\com.unity.ide.rider@1f60b3138684)
+    com.unity.ide.visualstudio@2.0.26 (location: D:\App\Hero Line Wars\Unity\HeroLineWars\Temp\HLWRepairValidation\Library\PackageCache\com.unity.ide.visualstudio@a99d56dec63f)
+    com.unity.inputsystem@1.20.0 (location: D:\App\Hero Line Wars\Unity\HeroLineWars\Temp\HLWRepairValidation\Library\PackageCache\com.unity.inputsystem@7a4e1a2a8194)
+    com.unity.visualscripting@1.9.12 (location: D:\App\Hero Line Wars\Unity\HeroLineWars\Temp\HLWRepairValidation\Library\PackageCache\com.unity.visualscripting@4edfcc09512f)
+    com.unity.searcher@4.9.5 (location: D:\App\Hero Line Wars\Unity\HeroLineWars\Temp\HLWRepairValidation\Library\PackageCache\com.unity.searcher@a463122f2c00)
+    com.unity.profiling.core@1.0.3 (location: D:\App\Hero Line Wars\Unity\HeroLineWars\Temp\HLWRepairValidation\Library\PackageCache\com.unity.profiling.core@8a49f7027d06)
+    com.unity.nuget.mono-cecil@1.11.6 (location: D:\App\Hero Line Wars\Unity\HeroLineWars\Temp\HLWRepairValidation\Library\PackageCache\com.unity.nuget.mono-cecil@ecb9724e46ff)
+  Built-in packages:
+    com.unity.render-pipelines.universal@17.6.0 (location: D:\App\Hero Line Wars\Unity\HeroLineWars\Temp\HLWRepairValidation\Library\PackageCache\com.unity.render-pipelines.universal@8457e85b8184)
+    com.unity.test-framework@1.8.0 (location: D:\App\Hero Line Wars\Unity\HeroLineWars\Temp\HLWRepairValidation\Library\PackageCache\com.unity.test-framework@7a3849e09bd0)
+    com.unity.timeline@6.6.0 (location: D:\App\Hero Line Wars\Unity\HeroLineWars\Temp\HLWRepairValidation\Library\PackageCache\com.unity.timeline@281d5f7e7d7d)
+    com.unity.ugui@2.6.0 (location: D:\App\Hero Line Wars\Unity\HeroLineWars\Temp\HLWRepairValidation\Library\PackageCache\com.unity.ugui@23caec89ae27)
+    com.unity.modules.accessibility@1.0.0 (location: D:\App\Hero Line Wars\Unity\HeroLineWars\Temp\HLWRepairValidation\Library\PackageCache\com.unity.modules.accessibility)
+    com.unity.modules.adaptiveperformance@1.0.0 (location: D:\App\Hero Line Wars\Unity\HeroLineWars\Temp\HLWRepairValidation\Library\PackageCache\com.unity.modules.adaptiveperformance)
+    com.unity.modules.ai@1.0.0 (location: D:\App\Hero Line Wars\Unity\HeroLineWars\Temp\HLWRepairValidation\Library\PackageCache\com.unity.modules.ai)
+    com.unity.modules.androidjni@1.0.0 (location: D:\App\Hero Line Wars\Unity\HeroLineWars\Temp\HLWRepairValidation\Library\PackageCache\com.unity.modules.androidjni)
+    com.unity.modules.animation@1.0.0 (location: D:\App\Hero Line Wars\Unity\HeroLineWars\Temp\HLWRepairValidation\Library\PackageCache\com.unity.modules.animation)
+    com.unity.modules.assetbundle@1.0.0 (location: D:\App\Hero Line Wars\Unity\HeroLineWars\Temp\HLWRepairValidation\Library\PackageCache\com.unity.modules.assetbundle)
+    com.unity.modules.audio@1.0.0 (location: D:\App\Hero Line Wars\Unity\HeroLineWars\Temp\HLWRepairValidation\Library\PackageCache\com.unity.modules.audio)
+    com.unity.modules.cloth@1.0.0 (location: D:\App\Hero Line Wars\Unity\HeroLineWars\Temp\HLWRepairValidation\Library\PackageCache\com.unity.modules.cloth)
+    com.unity.modules.director@1.0.0 (location: D:\App\Hero Line Wars\Unity\HeroLineWars\Temp\HLWRepairValidation\Library\PackageCache\com.unity.modules.director)
+    com.unity.modules.imageconversion@1.0.0 (location: D:\App\Hero Line Wars\Unity\HeroLineWars\Temp\HLWRepairValidation\Library\PackageCache\com.unity.modules.imageconversion)
+    com.unity.modules.imgui@1.0.0 (location: D:\App\Hero Line Wars\Unity\HeroLineWars\Temp\HLWRepairValidation\Library\PackageCache\com.unity.modules.imgui)
+    com.unity.modules.jsonserialize@1.0.0 (location: D:\App\Hero Line Wars\Unity\HeroLineWars\Temp\HLWRepairValidation\Library\PackageCache\com.unity.modules.jsonserialize)
+    com.unity.modules.particlesystem@1.0.0 (location: D:\App\Hero Line Wars\Unity\HeroLineWars\Temp\HLWRepairValidation\Library\PackageCache\com.unity.modules.particlesystem)
+    com.unity.modules.physics@1.0.0 (location: D:\App\Hero Line Wars\Unity\HeroLineWars\Temp\HLWRepairValidation\Library\PackageCache\com.unity.modules.physics)
+    com.unity.modules.physics2d@1.0.0 (location: D:\App\Hero Line Wars\Unity\HeroLineWars\Temp\HLWRepairValidation\Library\PackageCache\com.unity.modules.physics2d)
+    com.unity.modules.physicscore2d@1.0.0 (location: D:\App\Hero Line Wars\Unity\HeroLineWars\Temp\HLWRepairValidation\Library\PackageCache\com.unity.modules.physicscore2d)
+    com.unity.modules.screencapture@1.0.0 (location: D:\App\Hero Line Wars\Unity\HeroLineWars\Temp\HLWRepairValidation\Library\PackageCache\com.unity.modules.screencapture)
+    com.unity.modules.terrain@1.0.0 (location: D:\App\Hero Line Wars\Unity\HeroLineWars\Temp\HLWRepairValidation\Library\PackageCache\com.unity.modules.terrain)
+    com.unity.modules.terrainphysics@1.0.0 (location: D:\App\Hero Line Wars\Unity\HeroLineWars\Temp\HLWRepairValidation\Library\PackageCache\com.unity.modules.terrainphysics)
+    com.unity.modules.tetgen@1.0.0 (location: D:\App\Hero Line Wars\Unity\HeroLineWars\Temp\HLWRepairValidation\Library\PackageCache\com.unity.modules.tetgen)
+    com.unity.modules.tilemap@1.0.0 (location: D:\App\Hero Line Wars\Unity\HeroLineWars\Temp\HLWRepairValidation\Library\PackageCache\com.unity.modules.tilemap)
+    com.unity.modules.timelinefoundation@1.0.0 (location: D:\App\Hero Line Wars\Unity\HeroLineWars\Temp\HLWRepairValidation\Library\PackageCache\com.unity.modules.timelinefoundation)
+    com.unity.modules.ui@1.0.0 (location: D:\App\Hero Line Wars\Unity\HeroLineWars\Temp\HLWRepairValidation\Library\PackageCache\com.unity.modules.ui)
+    com.unity.modules.uielements@1.0.0 (location: D:\App\Hero Line Wars\Unity\HeroLineWars\Temp\HLWRepairValidation\Library\PackageCache\com.unity.modules.uielements)
+    com.unity.modules.umbra@1.0.0 (location: D:\App\Hero Line Wars\Unity\HeroLineWars\Temp\HLWRepairValidation\Library\PackageCache\com.unity.modules.umbra)
+    com.unity.modules.unityanalytics@1.0.0 (location: D:\App\Hero Line Wars\Unity\HeroLineWars\Temp\HLWRepairValidation\Library\PackageCache\com.unity.modules.unityanalytics)
+    com.unity.modules.unitywebrequest@1.0.0 (location: D:\App\Hero Line Wars\Unity\HeroLineWars\Temp\HLWRepairValidation\Library\PackageCache\com.unity.modules.unitywebrequest)
+    com.unity.modules.unitywebrequestassetbundle@1.0.0 (location: D:\App\Hero Line Wars\Unity\HeroLineWars\Temp\HLWRepairValidation\Library\PackageCache\com.unity.modules.unitywebrequestassetbundle)
+    com.unity.modules.unitywebrequestaudio@1.0.0 (location: D:\App\Hero Line Wars\Unity\HeroLineWars\Temp\HLWRepairValidation\Library\PackageCache\com.unity.modules.unitywebrequestaudio)
+    com.unity.modules.unitywebrequesttexture@1.0.0 (location: D:\App\Hero Line Wars\Unity\HeroLineWars\Temp\HLWRepairValidation\Library\PackageCache\com.unity.modules.unitywebrequesttexture)
+    com.unity.modules.unitywebrequestwww@1.0.0 (location: D:\App\Hero Line Wars\Unity\HeroLineWars\Temp\HLWRepairValidation\Library\PackageCache\com.unity.modules.unitywebrequestwww)
+    com.unity.modules.vectorgraphics@1.0.0 (location: D:\App\Hero Line Wars\Unity\HeroLineWars\Temp\HLWRepairValidation\Library\PackageCache\com.unity.modules.vectorgraphics)
+    com.unity.modules.vehicles@1.0.0 (location: D:\App\Hero Line Wars\Unity\HeroLineWars\Temp\HLWRepairValidation\Library\PackageCache\com.unity.modules.vehicles)
+    com.unity.modules.video@1.0.0 (location: D:\App\Hero Line Wars\Unity\HeroLineWars\Temp\HLWRepairValidation\Library\PackageCache\com.unity.modules.video)
+    com.unity.modules.wind@1.0.0 (location: D:\App\Hero Line Wars\Unity\HeroLineWars\Temp\HLWRepairValidation\Library\PackageCache\com.unity.modules.wind)
+    com.unity.modules.xr@1.0.0 (location: D:\App\Hero Line Wars\Unity\HeroLineWars\Temp\HLWRepairValidation\Library\PackageCache\com.unity.modules.xr)
+    com.unity.modules.subsystems@1.0.0 (location: D:\App\Hero Line Wars\Unity\HeroLineWars\Temp\HLWRepairValidation\Library\PackageCache\com.unity.modules.subsystems)
+    com.unity.modules.hierarchycore@1.0.0 (location: D:\App\Hero Line Wars\Unity\HeroLineWars\Temp\HLWRepairValidation\Library\PackageCache\com.unity.modules.hierarchycore)
+    com.unity.ext.nunit@2.1.0 (location: D:\App\Hero Line Wars\Unity\HeroLineWars\Temp\HLWRepairValidation\Library\PackageCache\com.unity.ext.nunit@0198eae3b53e)
+    com.unity.render-pipelines.core@17.6.0 (location: D:\App\Hero Line Wars\Unity\HeroLineWars\Temp\HLWRepairValidation\Library\PackageCache\com.unity.render-pipelines.core@2d66c71e606e)
+    com.unity.shadergraph@17.6.0 (location: D:\App\Hero Line Wars\Unity\HeroLineWars\Temp\HLWRepairValidation\Library\PackageCache\com.unity.shadergraph@ef6135652377)
+    com.unity.render-pipelines.universal-config@17.6.0 (location: D:\App\Hero Line Wars\Unity\HeroLineWars\Temp\HLWRepairValidation\Library\PackageCache\com.unity.render-pipelines.universal-config@561422b74439)
+    com.unity.graph-authoring@1.0.0 (location: D:\App\Hero Line Wars\Unity\HeroLineWars\Temp\HLWRepairValidation\Library\PackageCache\com.unity.graph-authoring@cfd2588851ee)
+    com.unity.burst@2.0.0 (location: D:\App\Hero Line Wars\Unity\HeroLineWars\Temp\HLWRepairValidation\Library\PackageCache\com.unity.burst@626e66ab421b)
+    com.unity.collections@6.6.0 (location: D:\App\Hero Line Wars\Unity\HeroLineWars\Temp\HLWRepairValidation\Library\PackageCache\com.unity.collections@10fff0607388)
+    com.unity.test-framework.performance@6.6.0 (location: D:\App\Hero Line Wars\Unity\HeroLineWars\Temp\HLWRepairValidation\Library\PackageCache\com.unity.test-framework.performance@0a60b857a52e)
+[Subsystems] No new subsystems found in resolved package list.
+[Package Manager] Done registering packages in 0.08 seconds
+[ScriptCompilation] Requested script compilation because: AssetDatabase observed changes in script compilation related files
+Starting: C:\Program Files\Unity\Hub\Editor\6000.6.0f1\Editor\Data\Tools\BuildPipeline\bee_backend.exe --ipc --defer-dag-verification --dagfile="Library/Bee/1900b0aE.dag" --continue-on-failure --profile="Library/Bee/backend1.traceevents" ScriptAssemblies
+WorkingDir: D:/App/Hero Line Wars/Unity/HeroLineWars/Temp/HLWRepairValidation
+DisplayProgressbar: Compiling Scripts
+ExitCode: 0 Duration: 6s979ms
+[754/970    2s] ILPP-Configuration Library/ilpp-configuration.nevergeneratedoutput
+[962/970    3s] Csc Library/Bee/artifacts/1900b0aE.dag/Assembly-CSharp.dll (+2 others)
+[963/970    1s] Csc Library/Bee/artifacts/1900b0aE.dag/Assembly-CSharp-Editor.dll (+2 others)
+[964/970    1s] ILPostProcess Library/Bee/artifacts/1900b0aE.dag/post-processed/Assembly-CSharp.dll (+pdb)
+Processing assembly Library/Bee/artifacts/1900b0aE.dag/Assembly-CSharp.dll, with 149 defines and 351 references
+
+processors: Unity.Jobs.CodeGen.JobsILPostProcessor, zzzUnity.Burst.CodeGen.BurstILPostProcessor
+
+1 processor(s) skipped this assembly
+
+running Unity.Jobs.CodeGen.JobsILPostProcessor
+[965/970    0s] CopyFiles Library/ScriptAssemblies/Assembly-CSharp.pdb
+[966/970    0s] CopyFiles Library/ScriptAssemblies/Assembly-CSharp.dll
+[967/970    0s] ILPostProcess Library/Bee/artifacts/1900b0aE.dag/post-processed/Assembly-CSharp-Editor.dll (+pdb)
+Processing assembly Library/Bee/artifacts/1900b0aE.dag/Assembly-CSharp-Editor.dll, with 147 defines and 374 references
+
+processors: Unity.Jobs.CodeGen.JobsILPostProcessor, zzzUnity.Burst.CodeGen.BurstILPostProcessor
+
+1 processor(s) skipped this assembly
+
+running Unity.Jobs.CodeGen.JobsILPostProcessor
+[968/970    0s] CopyFiles Library/ScriptAssemblies/Assembly-CSharp-Editor.pdb
+[969/970    0s] CopyFiles Library/ScriptAssemblies/Assembly-CSharp-Editor.dll
+*** Tundra build success (6.84 seconds), 9 items updated, 970 evaluated
+Total cache size 171436436
+Total cache size after purge 171436436, took 00:00:00.6589294
+AssetDatabase: script compilation time: 10.095388s
+Begin MonoManager ReloadAssembly
+'Packages/com.unity.render-pipelines.core/Editor/Deprecated.cs' contains partial class of Unity.Object, exactly 1 of the partial classes needs to be in a file with the same filename. This is to know the one that can be referenced from ie. GameObjects
+'Packages/com.unity.render-pipelines.core/Editor/Deprecated.cs' contains partial class of Unity.Object, exactly 1 of the partial classes needs to be in a file with the same filename. This is to know the one that can be referenced from ie. GameObjects
+Refreshing native plugins compatible for Editor in 6.22 ms, found 4 plugins.
+Native extension for WindowsStandalone target not found
+Native extension for WebGL target not found
+ScheduleIndexationOnStartup MainProcess:True IndexOnStartup:True
+Scripting: successfully reloaded assembly
+- Finished resetting the current domain, in  4.450 seconds
+Domain Reload Profiling: 9049ms
+	BeginReloadAssembly (1154ms)
+		DisableScriptedObjects (225ms)
+		CreateAndSetChildDomain (165ms)
+	RebuildCommonClasses (56ms)
+	RebuildNativeTypeToScriptingClass (102ms)
+	initialDomainReloadingComplete (267ms)
+	LoadAllAssembliesAndSetupDomain (3017ms)
+		LoadAssemblies (1431ms)
+		TypeCache.Refresh (1001ms)
+			TypeCache.ScanAssembly (956ms)
+		AnalyzeDomain (427ms)
+			BuildScriptInfoCaches (386ms)
+			ResolveRequiredComponents (33ms)
+	FinalizeReload (4453ms)
+		SetupLoadedEditorAssemblies (0ms)
+			LogAssemblyErrors (6ms)
+			InitializePlatformSupportModulesInManaged (6ms)
+			BeforeProcessingInitializeOnLoad (506ms)
+			ProcessInitializeOnLoadAttributes (1549ms)
+			ProcessInitializeOnLoadMethodAttributes (403ms)
+			AfterProcessingInitializeOnLoad (38ms)
+			EditorAssembliesLoaded (6ms)
+		AwakeInstancesAfterBackupRestoration (152ms)
+Starting new worker id: 0 with log in D:/App/Hero Line Wars/Unity/HeroLineWars/Temp/HLWRepairValidation/Logs/AssetImportWorkerHW0.log
+Refreshing native plugins compatible for Editor in 2.92 ms, found 4 plugins.
+
+Asset Pipeline Refresh (id=5021638b1095bd14cb3c8be9087e42be): Total: 22.670 seconds - Initiated by InitialRefreshV2(ForceSynchronousImport)
+	(Values over 0.05ms)
+	Summary:
+		Imports: total=0 (actual=0, local cache=0, cache server=0)
+		Asset DB Process Time: managed=0 ms, native=6260 ms
+		Asset DB Callback time: managed=998 ms, native=98 ms
+		Scripting: domain reloads=1, domain reload time=4900 ms, compile time=10102 ms, other=311 ms
+		Project Asset Count: scripts=1421, non-scripts=4234
+		Asset File Changes: new=0, changed=2, moved=0, deleted=0
+		Scan Filter Count: 0
+	InvokePackagesCallback: 88.712ms
+	ApplyChangesToAssetFolders: 1.642ms
+	Scan: 503.107ms
+	Collect global state as custom dependencies: 72.435ms
+	OnSourceAssetsModified: 1.755ms
+	CategorizeScriptCompilationAssets: 177.381ms
+	ProcessAssetsWithTransientArtifactChanges: 273.864ms
+	CategorizeAssets: 225.481ms
+	CompileScripts: 10101.651ms
+	ImportOutOfDateAssets: 4507.635ms (4477.408ms without children)
+		ReloadNativeAssets: 0.059ms
+		UnloadImportedAssets: 1.625ms
+		EnsureUptoDateAssetsAreRegisteredWithGuidPM: 2.457ms
+		ImportSchedulerStart: 26.075ms
+	PostProcessAllAssets: 1006.908ms
+		VCAutoAddAssetPostprocess 4.473ms
+		XRBuildSystem.XRAssetImported 0.819ms
+		PostProcessCallbackCreateDeferredMaterials 0.076ms
+		MonoPostProcessAllAssets: 997.404ms
+			AssetPostprocessor.OnPostprocessAllAssets 672.575ms
+			UniversalRenderPipelineGlobalSettingsPostprocessor.OnPostprocessAllAssets 77.562ms
+			StyleCatalogPostProcessor.OnPostprocessAllAssets 71.705ms
+			SyncVS.PostprocessSyncProject 45.687ms
+			BuilderAssetPostprocessor.OnPostprocessAllAssets 27.237ms
+			SpeedTree9Postprocessor.OnPostprocessAllAssets 7.998ms
+			WindowAssetPostprocessingWatcher.OnPostprocessAllAssets 7.293ms
+			ShaderGraphAssetPostProcessor.OnPostprocessAllAssets 5.992ms
+			AssetChangedListener.OnPostprocessAllAssets 5.276ms
+			RenderPipelineGlobalSettingsPostprocessor.OnPostprocessAllAssets 4.332ms
+			RetainedModeAssetPostprocessor.OnPostprocessAllAssets 4.286ms
+			MaterialPostprocessor.OnPostprocessAllAssets 3.355ms
+			ShaderReflectionAssetPostProcessor.OnPostprocessAllAssets 2.233ms
+			EditModeScopePostprocessor.OnPostprocessAllAssets 2.145ms
+			PostProcessor.OnPostprocessAllAssets 1.461ms
+			InputActionAssetPostprocessor.OnPostprocessAllAssets 1.322ms
+			UVCSAssetPostprocessor.OnPostprocessAllAssets 1.190ms
+			TextAssetPostProcessor.OnPostprocessAllAssets 1.177ms
+			ArtifactBrowserPostProcessor.OnPostprocessAllAssets 1.155ms
+			AudioMixerPostprocessor.OnPostprocessAllAssets 1.024ms
+			TerrainToolbarOverlayPostProcessor.OnPostprocessAllAssets 0.940ms
+			ReferencedClipsPostProcessor.OnPostprocessAllAssets 0.909ms
+			InputActionJsonNameModifierAssetProcessor.OnPostprocessAllAssets 0.684ms
+			AssetEvents.OnPostprocessAllAssets 0.675ms
+			ProjectSettingsPostprocessor.OnPostprocessAllAssets 0.634ms
+			ConfigAssetsTracker.OnPostprocessAllAssets 0.584ms
+			AssetDatabaseCallbacks.OnPostprocessAllAssets 0.575ms
+			SamplePostprocessor.OnPostprocessAllAssets 0.482ms
+			TMPro_TexturePostProcessor.OnPostprocessAllAssets 0.472ms
+			ScenarioDriftAssetsTracker.OnPostprocessAllAssets 0.458ms
+			SpeedTreePostProcessor.OnPostprocessAllAssets 0.416ms
+			ThemePostprocessor.OnPostprocessAllAssets 0.377ms
+			AssetReloadNotifier.OnPostprocessAllAssets 0.371ms
+			AudioContainerPostProcessor.OnPostprocessAllAssets 0.255ms
+	PostAssetChangesProfiler: 5.792ms
+	UnloadStreamsBegin: 4.283ms
+	PersistCurrentRevisions: 0.558ms
+	GenerateScriptTypeHashes: 3.300ms
+	GenerateScriptTypeSerializationHashes: 5.744ms
+	Untracked: 5614.516ms
+
+Application.AssetDatabase Initial Refresh End
+Launched and connected shader compiler UnityShaderCompiler.exe after 0.03 seconds
+Scanning for USB devices : 5.156ms
+Initializing Unity extensions:
+[MODES] ModeService[none].Initialize
+[MODES] ModeService[none].LoadModes
+[MODES] Loading mode Default (0) for mode-current-id-HeroLineWars
+Unloading 66 Unused Serialized files (Serialized files now loaded: 0)
+Unloading 6630 unused Assets / (11.3 MB). Loaded Objects now: 7554.
+Memory consumption went from 433.8 MB to 422.5 MB.
+Total: 64.873700 ms (FindLiveObjects: 1.767300 ms CreateObjectMapping: 2.748900 ms MarkObjects: 38.107700 ms  DeleteObjects: 21.602100 ms)
+
+Opening scene 'Assets/Scenes/HLW_LanePrototype.unity'
+Unloading 19 Unused Serialized files (Serialized files now loaded: 0)
+Loaded scene 'Assets/Scenes/HLW_LanePrototype.unity'
+	Deserialize:            165.680 ms
+	Integration:            252.287 ms
+	Integration of assets:  14.605 ms
+	Thread Wait Time:       -0.586 ms
+	Total Operation Time:   431.987 ms
+Unloading 3 unused Assets / (2.3 KB). Loaded Objects now: 11533.
+Memory consumption went from 427.2 MB to 427.2 MB.
+Total: 39.094900 ms (FindLiveObjects: 2.205500 ms CreateObjectMapping: 0.758100 ms MarkObjects: 35.325000 ms  DeleteObjects: 0.076400 ms)
+
+Kenney Arena/Castle environment assets assigned to LaneGenerator.
+UnityEngine.Debug:ExtractStackTraceNoAlloc (byte*,int,string)
+UnityEngine.StackTraceUtility:ExtractStackTrace ()
+UnityEngine.DebugLogHandler:Internal_Log (UnityEngine.LogType,UnityEngine.LogOption,string,UnityEngine.Object)
+UnityEngine.DebugLogHandler:LogFormat (UnityEngine.LogType,UnityEngine.Object,string,object[])
+UnityEngine.Logger:Log (UnityEngine.LogType,object)
+UnityEngine.Debug:Log (object)
+LaneGeneratorEditor:SetupKenneyAssets () (at Assets/Editor/LaneGeneratorEditor.cs:199)
+PolishValidation:Run () (at Assets/Editor/PolishValidation.cs:35)
+
+(Filename: Assets/Editor/LaneGeneratorEditor.cs Line: 199)
+
+CHECKS: flat tiles, full footprint, no overlap, outside decorations, camera intact
+UnityEngine.Debug:ExtractStackTraceNoAlloc (byte*,int,string)
+UnityEngine.StackTraceUtility:ExtractStackTrace ()
+UnityEngine.DebugLogHandler:Internal_Log (UnityEngine.LogType,UnityEngine.LogOption,string,UnityEngine.Object)
+UnityEngine.DebugLogHandler:LogFormat (UnityEngine.LogType,UnityEngine.Object,string,object[])
+UnityEngine.Logger:Log (UnityEngine.LogType,object)
+UnityEngine.Debug:Log (object)
+PolishValidation:Validate (LaneGenerator) (at Assets/Editor/PolishValidation.cs:99)
+PolishValidation:Run () (at Assets/Editor/PolishValidation.cs:41)
+
+(Filename: Assets/Editor/PolishValidation.cs Line: 99)
+
+CHECKS: flat tiles, full footprint, no overlap, outside decorations, camera intact
+UnityEngine.Debug:ExtractStackTraceNoAlloc (byte*,int,string)
+UnityEngine.StackTraceUtility:ExtractStackTrace ()
+UnityEngine.DebugLogHandler:Internal_Log (UnityEngine.LogType,UnityEngine.LogOption,string,UnityEngine.Object)
+UnityEngine.DebugLogHandler:LogFormat (UnityEngine.LogType,UnityEngine.Object,string,object[])
+UnityEngine.Logger:Log (UnityEngine.LogType,object)
+UnityEngine.Debug:Log (object)
+PolishValidation:Validate (LaneGenerator) (at Assets/Editor/PolishValidation.cs:99)
+PolishValidation:Run () (at Assets/Editor/PolishValidation.cs:49)
+
+(Filename: Assets/Editor/PolishValidation.cs Line: 99)
+
+CHECKS: flat tiles, full footprint, no overlap, outside decorations, camera intact
+UnityEngine.Debug:ExtractStackTraceNoAlloc (byte*,int,string)
+UnityEngine.StackTraceUtility:ExtractStackTrace ()
+UnityEngine.DebugLogHandler:Internal_Log (UnityEngine.LogType,UnityEngine.LogOption,string,UnityEngine.Object)
+UnityEngine.DebugLogHandler:LogFormat (UnityEngine.LogType,UnityEngine.Object,string,object[])
+UnityEngine.Logger:Log (UnityEngine.LogType,object)
+UnityEngine.Debug:Log (object)
+PolishValidation:Validate (LaneGenerator) (at Assets/Editor/PolishValidation.cs:99)
+PolishValidation:Run () (at Assets/Editor/PolishValidation.cs:59)
+
+(Filename: Assets/Editor/PolishValidation.cs Line: 99)
+
+CHECKS: flat tiles, full footprint, no overlap, outside decorations, camera intact
+UnityEngine.Debug:ExtractStackTraceNoAlloc (byte*,int,string)
+UnityEngine.StackTraceUtility:ExtractStackTrace ()
+UnityEngine.DebugLogHandler:Internal_Log (UnityEngine.LogType,UnityEngine.LogOption,string,UnityEngine.Object)
+UnityEngine.DebugLogHandler:LogFormat (UnityEngine.LogType,UnityEngine.Object,string,object[])
+UnityEngine.Logger:Log (UnityEngine.LogType,object)
+UnityEngine.Debug:Log (object)
+PolishValidation:Validate (LaneGenerator) (at Assets/Editor/PolishValidation.cs:99)
+PolishValidation:Run () (at Assets/Editor/PolishValidation.cs:61)
+
+(Filename: Assets/Editor/PolishValidation.cs Line: 99)
+
+--- Kenney Arena floor asset geometry ---
+UnityEngine.Debug:ExtractStackTraceNoAlloc (byte*,int,string)
+UnityEngine.StackTraceUtility:ExtractStackTrace ()
+UnityEngine.DebugLogHandler:Internal_Log (UnityEngine.LogType,UnityEngine.LogOption,string,UnityEngine.Object)
+UnityEngine.DebugLogHandler:LogFormat (UnityEngine.LogType,UnityEngine.Object,string,object[])
+UnityEngine.Logger:Log (UnityEngine.LogType,object)
+UnityEngine.Debug:Log (object)
+LaneGeneratorEditor:ReportFloorMeshGeometry () (at Assets/Editor/LaneGeneratorEditor.cs:47)
+PolishValidation:Run () (at Assets/Editor/PolishValidation.cs:62)
+
+(Filename: Assets/Editor/LaneGeneratorEditor.cs Line: 47)
+
+Unmodified asset: renderers=1, position=(0.00, 0.00, 0.00), rotation=(0.00, 0.00, 0.00), scale=(1.00, 1.00, 1.00)
+UnityEngine.Debug:ExtractStackTraceNoAlloc (byte*,int,string)
+UnityEngine.StackTraceUtility:ExtractStackTrace ()
+UnityEngine.DebugLogHandler:Internal_Log (UnityEngine.LogType,UnityEngine.LogOption,string,UnityEngine.Object)
+UnityEngine.DebugLogHandler:LogFormat (UnityEngine.LogType,UnityEngine.Object,string,object[])
+UnityEngine.Logger:Log (UnityEngine.LogType,object)
+UnityEngine.Debug:Log (object)
+LaneGeneratorEditor:ReportObject (UnityEngine.GameObject,string) (at Assets/Editor/LaneGeneratorEditor.cs:117)
+LaneGeneratorEditor:ReportFloorMeshGeometry () (at Assets/Editor/LaneGeneratorEditor.cs:48)
+PolishValidation:Run () (at Assets/Editor/PolishValidation.cs:62)
+
+(Filename: Assets/Editor/LaneGeneratorEditor.cs Line: 117)
+
+[0] floor: worldBounds=Center: (0.00, 0.00, 0.00), Extents: (0.50, 0.00, 0.50), worldY=0,00000..0,00000, transformPos=(0.00, 0.00, 0.00), rotation=(0.00, 0.00, 0.00), scale=(1.00, 1.00, 1.00), mesh=floor, localBounds=Center: (0.00, 0.00, 0.00), Extents: (0.50, 0.00, 0.50), subMeshes=1, vertices=4, materials=colormap [Universal Render Pipeline/Lit]
+UnityEngine.Debug:ExtractStackTraceNoAlloc (byte*,int,string)
+UnityEngine.StackTraceUtility:ExtractStackTrace ()
+UnityEngine.DebugLogHandler:Internal_Log (UnityEngine.LogType,UnityEngine.LogOption,string,UnityEngine.Object)
+UnityEngine.DebugLogHandler:LogFormat (UnityEngine.LogType,UnityEngine.Object,string,object[])
+UnityEngine.Logger:Log (UnityEngine.LogType,object)
+UnityEngine.Debug:Log (object)
+LaneGeneratorEditor:ReportRenderer (UnityEngine.Renderer,int) (at Assets/Editor/LaneGeneratorEditor.cs:160)
+LaneGeneratorEditor:ReportObject (UnityEngine.GameObject,string) (at Assets/Editor/LaneGeneratorEditor.cs:118)
+LaneGeneratorEditor:ReportFloorMeshGeometry () (at Assets/Editor/LaneGeneratorEditor.cs:48)
+PolishValidation:Run () (at Assets/Editor/PolishValidation.cs:62)
+
+(Filename: Assets/Editor/LaneGeneratorEditor.cs Line: 160)
+
+Material colormap: baseMap=colormap (UnityEngine.Texture2D), baseColor=RGBA(1.000, 1.000, 1.000, 1.000), queue=2000, surface=0, zWrite=1
+UnityEngine.Debug:ExtractStackTraceNoAlloc (byte*,int,string)
+UnityEngine.StackTraceUtility:ExtractStackTrace ()
+UnityEngine.DebugLogHandler:Internal_Log (UnityEngine.LogType,UnityEngine.LogOption,string,UnityEngine.Object)
+UnityEngine.DebugLogHandler:LogFormat (UnityEngine.LogType,UnityEngine.Object,string,object[])
+UnityEngine.Logger:Log (UnityEngine.LogType,object)
+UnityEngine.Debug:Log (object)
+LaneGeneratorEditor:ReportRenderer (UnityEngine.Renderer,int) (at Assets/Editor/LaneGeneratorEditor.cs:163)
+LaneGeneratorEditor:ReportObject (UnityEngine.GameObject,string) (at Assets/Editor/LaneGeneratorEditor.cs:118)
+LaneGeneratorEditor:ReportFloorMeshGeometry () (at Assets/Editor/LaneGeneratorEditor.cs:48)
+PolishValidation:Run () (at Assets/Editor/PolishValidation.cs:62)
+
+(Filename: Assets/Editor/LaneGeneratorEditor.cs Line: 163)
+
+Mesh floor: readable=False, triangles=2, transform=floor
+UnityEngine.Debug:ExtractStackTraceNoAlloc (byte*,int,string)
+UnityEngine.StackTraceUtility:ExtractStackTrace ()
+UnityEngine.DebugLogHandler:Internal_Log (UnityEngine.LogType,UnityEngine.LogOption,string,UnityEngine.Object)
+UnityEngine.DebugLogHandler:LogFormat (UnityEngine.LogType,UnityEngine.Object,string,object[])
+UnityEngine.Logger:Log (UnityEngine.LogType,object)
+UnityEngine.Debug:Log (object)
+LaneGeneratorEditor:ReportObject (UnityEngine.GameObject,string) (at Assets/Editor/LaneGeneratorEditor.cs:131)
+LaneGeneratorEditor:ReportFloorMeshGeometry () (at Assets/Editor/LaneGeneratorEditor.cs:48)
+PolishValidation:Run () (at Assets/Editor/PolishValidation.cs:62)
+
+(Filename: Assets/Editor/LaneGeneratorEditor.cs Line: 131)
+
+vertex[0] local=(-0.50000, 0.00000, -0.50000) world=(-0.50000, 0.00000, -0.50000) normal=(0.00, 1.00, 0.00) uv=(0.97, 0.13)
+UnityEngine.Debug:ExtractStackTraceNoAlloc (byte*,int,string)
+UnityEngine.StackTraceUtility:ExtractStackTrace ()
+UnityEngine.DebugLogHandler:Internal_Log (UnityEngine.LogType,UnityEngine.LogOption,string,UnityEngine.Object)
+UnityEngine.DebugLogHandler:LogFormat (UnityEngine.LogType,UnityEngine.Object,string,object[])
+UnityEngine.Logger:Log (UnityEngine.LogType,object)
+UnityEngine.Debug:Log (object)
+LaneGeneratorEditor:ReportObject (UnityEngine.GameObject,string) (at Assets/Editor/LaneGeneratorEditor.cs:137)
+LaneGeneratorEditor:ReportFloorMeshGeometry () (at Assets/Editor/LaneGeneratorEditor.cs:48)
+PolishValidation:Run () (at Assets/Editor/PolishValidation.cs:62)
+
+(Filename: Assets/Editor/LaneGeneratorEditor.cs Line: 137)
+
+vertex[1] local=(-0.50000, 0.00000, 0.50000) world=(-0.50000, 0.00000, 0.50000) normal=(0.00, 1.00, 0.00) uv=(0.97, 0.13)
+UnityEngine.Debug:ExtractStackTraceNoAlloc (byte*,int,string)
+UnityEngine.StackTraceUtility:ExtractStackTrace ()
+UnityEngine.DebugLogHandler:Internal_Log (UnityEngine.LogType,UnityEngine.LogOption,string,UnityEngine.Object)
+UnityEngine.DebugLogHandler:LogFormat (UnityEngine.LogType,UnityEngine.Object,string,object[])
+UnityEngine.Logger:Log (UnityEngine.LogType,object)
+UnityEngine.Debug:Log (object)
+LaneGeneratorEditor:ReportObject (UnityEngine.GameObject,string) (at Assets/Editor/LaneGeneratorEditor.cs:137)
+LaneGeneratorEditor:ReportFloorMeshGeometry () (at Assets/Editor/LaneGeneratorEditor.cs:48)
+PolishValidation:Run () (at Assets/Editor/PolishValidation.cs:62)
+
+(Filename: Assets/Editor/LaneGeneratorEditor.cs Line: 137)
+
+vertex[2] local=(0.50000, 0.00000, -0.50000) world=(0.50000, 0.00000, -0.50000) normal=(0.00, 1.00, 0.00) uv=(0.97, 0.13)
+UnityEngine.Debug:ExtractStackTraceNoAlloc (byte*,int,string)
+UnityEngine.StackTraceUtility:ExtractStackTrace ()
+UnityEngine.DebugLogHandler:Internal_Log (UnityEngine.LogType,UnityEngine.LogOption,string,UnityEngine.Object)
+UnityEngine.DebugLogHandler:LogFormat (UnityEngine.LogType,UnityEngine.Object,string,object[])
+UnityEngine.Logger:Log (UnityEngine.LogType,object)
+UnityEngine.Debug:Log (object)
+LaneGeneratorEditor:ReportObject (UnityEngine.GameObject,string) (at Assets/Editor/LaneGeneratorEditor.cs:137)
+LaneGeneratorEditor:ReportFloorMeshGeometry () (at Assets/Editor/LaneGeneratorEditor.cs:48)
+PolishValidation:Run () (at Assets/Editor/PolishValidation.cs:62)
+
+(Filename: Assets/Editor/LaneGeneratorEditor.cs Line: 137)
+
+vertex[3] local=(0.50000, 0.00000, 0.50000) world=(0.50000, 0.00000, 0.50000) normal=(0.00, 1.00, 0.00) uv=(0.97, 0.13)
+UnityEngine.Debug:ExtractStackTraceNoAlloc (byte*,int,string)
+UnityEngine.StackTraceUtility:ExtractStackTrace ()
+UnityEngine.DebugLogHandler:Internal_Log (UnityEngine.LogType,UnityEngine.LogOption,string,UnityEngine.Object)
+UnityEngine.DebugLogHandler:LogFormat (UnityEngine.LogType,UnityEngine.Object,string,object[])
+UnityEngine.Logger:Log (UnityEngine.LogType,object)
+UnityEngine.Debug:Log (object)
+LaneGeneratorEditor:ReportObject (UnityEngine.GameObject,string) (at Assets/Editor/LaneGeneratorEditor.cs:137)
+LaneGeneratorEditor:ReportFloorMeshGeometry () (at Assets/Editor/LaneGeneratorEditor.cs:48)
+PolishValidation:Run () (at Assets/Editor/PolishValidation.cs:62)
+
+(Filename: Assets/Editor/LaneGeneratorEditor.cs Line: 137)
+
+triangle 0,1,2: local winding normal=(0.00, 1.00, 0.00)
+UnityEngine.Debug:ExtractStackTraceNoAlloc (byte*,int,string)
+UnityEngine.StackTraceUtility:ExtractStackTrace ()
+UnityEngine.DebugLogHandler:Internal_Log (UnityEngine.LogType,UnityEngine.LogOption,string,UnityEngine.Object)
+UnityEngine.DebugLogHandler:LogFormat (UnityEngine.LogType,UnityEngine.Object,string,object[])
+UnityEngine.Logger:Log (UnityEngine.LogType,object)
+UnityEngine.Debug:Log (object)
+LaneGeneratorEditor:ReportObject (UnityEngine.GameObject,string) (at Assets/Editor/LaneGeneratorEditor.cs:146)
+LaneGeneratorEditor:ReportFloorMeshGeometry () (at Assets/Editor/LaneGeneratorEditor.cs:48)
+PolishValidation:Run () (at Assets/Editor/PolishValidation.cs:62)
+
+(Filename: Assets/Editor/LaneGeneratorEditor.cs Line: 146)
+
+triangle 3,2,1: local winding normal=(0.00, 1.00, 0.00)
+UnityEngine.Debug:ExtractStackTraceNoAlloc (byte*,int,string)
+UnityEngine.StackTraceUtility:ExtractStackTrace ()
+UnityEngine.DebugLogHandler:Internal_Log (UnityEngine.LogType,UnityEngine.LogOption,string,UnityEngine.Object)
+UnityEngine.DebugLogHandler:LogFormat (UnityEngine.LogType,UnityEngine.Object,string,object[])
+UnityEngine.Logger:Log (UnityEngine.LogType,object)
+UnityEngine.Debug:Log (object)
+LaneGeneratorEditor:ReportObject (UnityEngine.GameObject,string) (at Assets/Editor/LaneGeneratorEditor.cs:146)
+LaneGeneratorEditor:ReportFloorMeshGeometry () (at Assets/Editor/LaneGeneratorEditor.cs:48)
+PolishValidation:Run () (at Assets/Editor/PolishValidation.cs:62)
+
+(Filename: Assets/Editor/LaneGeneratorEditor.cs Line: 146)
+
+Actual vertex world Y=0,000000..0,000000, repeated index triangles=0
+UnityEngine.Debug:ExtractStackTraceNoAlloc (byte*,int,string)
+UnityEngine.StackTraceUtility:ExtractStackTrace ()
+UnityEngine.DebugLogHandler:Internal_Log (UnityEngine.LogType,UnityEngine.LogOption,string,UnityEngine.Object)
+UnityEngine.DebugLogHandler:LogFormat (UnityEngine.LogType,UnityEngine.Object,string,object[])
+UnityEngine.Logger:Log (UnityEngine.LogType,object)
+UnityEngine.Debug:Log (object)
+LaneGeneratorEditor:ReportObject (UnityEngine.GameObject,string) (at Assets/Editor/LaneGeneratorEditor.cs:148)
+LaneGeneratorEditor:ReportFloorMeshGeometry () (at Assets/Editor/LaneGeneratorEditor.cs:48)
+PolishValidation:Run () (at Assets/Editor/PolishValidation.cs:62)
+
+(Filename: Assets/Editor/LaneGeneratorEditor.cs Line: 148)
+
+Generator HLW_LanePrototype: active=True, KenneyFloor=floor (UnityEngine.GameObject), debug=False
+UnityEngine.Debug:ExtractStackTraceNoAlloc (byte*,int,string)
+UnityEngine.StackTraceUtility:ExtractStackTrace ()
+UnityEngine.DebugLogHandler:Internal_Log (UnityEngine.LogType,UnityEngine.LogOption,string,UnityEngine.Object)
+UnityEngine.DebugLogHandler:LogFormat (UnityEngine.LogType,UnityEngine.Object,string,object[])
+UnityEngine.Logger:Log (UnityEngine.LogType,object)
+UnityEngine.Debug:Log (object)
+LaneGeneratorEditor:ReportFloorMeshGeometry () (at Assets/Editor/LaneGeneratorEditor.cs:56)
+PolishValidation:Run () (at Assets/Editor/PolishValidation.cs:62)
+
+(Filename: Assets/Editor/LaneGeneratorEditor.cs Line: 56)
+
+--- Floor instance report: LaneFloor ---
+UnityEngine.Debug:ExtractStackTraceNoAlloc (byte*,int,string)
+UnityEngine.StackTraceUtility:ExtractStackTrace ()
+UnityEngine.DebugLogHandler:Internal_Log (UnityEngine.LogType,UnityEngine.LogOption,string,UnityEngine.Object)
+UnityEngine.DebugLogHandler:LogFormat (UnityEngine.LogType,UnityEngine.Object,string,object[])
+UnityEngine.Logger:Log (UnityEngine.LogType,object)
+UnityEngine.Debug:Log (object)
+LaneGeneratorEditor:ReportFloorInstances (UnityEngine.Transform) (at Assets/Editor/LaneGeneratorEditor.cs:94)
+LaneGeneratorEditor:ReportFloorMeshGeometry () (at Assets/Editor/LaneGeneratorEditor.cs:59)
+PolishValidation:Run () (at Assets/Editor/PolishValidation.cs:62)
+
+(Filename: Assets/Editor/LaneGeneratorEditor.cs Line: 94)
+
+HLW_LanePrototype/LaneFloor: tile roots=256, renderers=256
+UnityEngine.Debug:ExtractStackTraceNoAlloc (byte*,int,string)
+UnityEngine.StackTraceUtility:ExtractStackTrace ()
+UnityEngine.DebugLogHandler:Internal_Log (UnityEngine.LogType,UnityEngine.LogOption,string,UnityEngine.Object)
+UnityEngine.DebugLogHandler:LogFormat (UnityEngine.LogType,UnityEngine.Object,string,object[])
+UnityEngine.Logger:Log (UnityEngine.LogType,object)
+UnityEngine.Debug:Log (object)
+LaneGeneratorEditor:ReportFloorInstances (UnityEngine.Transform) (at Assets/Editor/LaneGeneratorEditor.cs:96)
+LaneGeneratorEditor:ReportFloorMeshGeometry () (at Assets/Editor/LaneGeneratorEditor.cs:59)
+PolishValidation:Run () (at Assets/Editor/PolishValidation.cs:62)
+
+(Filename: Assets/Editor/LaneGeneratorEditor.cs Line: 96)
+
+[0] Floor_00_00: worldBounds=Center: (0.50, 0.00, 0.50), Extents: (0.50, 0.00, 0.50), worldY=0,00000..0,00000, transformPos=(0.50, 0.00, 0.50), rotation=(0.00, 0.00, 0.00), scale=(1.00, 1.00, 1.00), mesh=floor, localBounds=Center: (0.00, 0.00, 0.00), Extents: (0.50, 0.00, 0.50), subMeshes=1, vertices=4, materials=HLW Paving [Hero Line Wars/Fortress Surface]
+UnityEngine.Debug:ExtractStackTraceNoAlloc (byte*,int,string)
+UnityEngine.StackTraceUtility:ExtractStackTrace ()
+UnityEngine.DebugLogHandler:Internal_Log (UnityEngine.LogType,UnityEngine.LogOption,string,UnityEngine.Object)
+UnityEngine.DebugLogHandler:LogFormat (UnityEngine.LogType,UnityEngine.Object,string,object[])
+UnityEngine.Logger:Log (UnityEngine.LogType,object)
+UnityEngine.Debug:Log (object)
+LaneGeneratorEditor:ReportRenderer (UnityEngine.Renderer,int) (at Assets/Editor/LaneGeneratorEditor.cs:160)
+LaneGeneratorEditor:ReportFloorInstances (UnityEngine.Transform) (at Assets/Editor/LaneGeneratorEditor.cs:97)
+LaneGeneratorEditor:ReportFloorMeshGeometry () (at Assets/Editor/LaneGeneratorEditor.cs:59)
+PolishValidation:Run () (at Assets/Editor/PolishValidation.cs:62)
+
+(Filename: Assets/Editor/LaneGeneratorEditor.cs Line: 160)
+
+Material HLW Paving: baseMap=colormap (UnityEngine.Texture2D), baseColor=RGBA(0.720, 0.770, 0.810, 1.000), queue=2000, surface=n/a, zWrite=n/a
+UnityEngine.Debug:ExtractStackTraceNoAlloc (byte*,int,string)
+UnityEngine.StackTraceUtility:ExtractStackTrace ()
+UnityEngine.DebugLogHandler:Internal_Log (UnityEngine.LogType,UnityEngine.LogOption,string,UnityEngine.Object)
+UnityEngine.DebugLogHandler:LogFormat (UnityEngine.LogType,UnityEngine.Object,string,object[])
+UnityEngine.Logger:Log (UnityEngine.LogType,object)
+UnityEngine.Debug:Log (object)
+LaneGeneratorEditor:ReportRenderer (UnityEngine.Renderer,int) (at Assets/Editor/LaneGeneratorEditor.cs:163)
+LaneGeneratorEditor:ReportFloorInstances (UnityEngine.Transform) (at Assets/Editor/LaneGeneratorEditor.cs:97)
+LaneGeneratorEditor:ReportFloorMeshGeometry () (at Assets/Editor/LaneGeneratorEditor.cs:59)
+PolishValidation:Run () (at Assets/Editor/PolishValidation.cs:62)
+
+(Filename: Assets/Editor/LaneGeneratorEditor.cs Line: 163)
+
+All floor renderers: world bounds=Center: (4.00, 0.00, 16.00), Extents: (4.00, 0.00, 16.00), Y=0,000000..0,000000; group position=(0.00, 0.00, 0.00), rotation=(0.00, 0.00, 0.00), scale=(1.00, 1.00, 1.00)
+UnityEngine.Debug:ExtractStackTraceNoAlloc (byte*,int,string)
+UnityEngine.StackTraceUtility:ExtractStackTrace ()
+UnityEngine.DebugLogHandler:Internal_Log (UnityEngine.LogType,UnityEngine.LogOption,string,UnityEngine.Object)
+UnityEngine.DebugLogHandler:LogFormat (UnityEngine.LogType,UnityEngine.Object,string,object[])
+UnityEngine.Logger:Log (UnityEngine.LogType,object)
+UnityEngine.Debug:Log (object)
+LaneGeneratorEditor:ReportFloorInstances (UnityEngine.Transform) (at Assets/Editor/LaneGeneratorEditor.cs:102)
+LaneGeneratorEditor:ReportFloorMeshGeometry () (at Assets/Editor/LaneGeneratorEditor.cs:59)
+PolishValidation:Run () (at Assets/Editor/PolishValidation.cs:62)
+
+(Filename: Assets/Editor/LaneGeneratorEditor.cs Line: 102)
+
+Positive-area bounds overlaps within HLW_LanePrototype/LaneFloor: 0
+UnityEngine.Debug:ExtractStackTraceNoAlloc (byte*,int,string)
+UnityEngine.StackTraceUtility:ExtractStackTrace ()
+UnityEngine.DebugLogHandler:Internal_Log (UnityEngine.LogType,UnityEngine.LogOption,string,UnityEngine.Object)
+UnityEngine.DebugLogHandler:LogFormat (UnityEngine.LogType,UnityEngine.Object,string,object[])
+UnityEngine.Logger:Log (UnityEngine.LogType,object)
+UnityEngine.Debug:Log (object)
+LaneGeneratorEditor:ReportFloorInstances (UnityEngine.Transform) (at Assets/Editor/LaneGeneratorEditor.cs:111)
+LaneGeneratorEditor:ReportFloorMeshGeometry () (at Assets/Editor/LaneGeneratorEditor.cs:59)
+PolishValidation:Run () (at Assets/Editor/PolishValidation.cs:62)
+
+(Filename: Assets/Editor/LaneGeneratorEditor.cs Line: 111)
+
+Generator LaneGenerator: active=False, KenneyFloor=null, debug=True
+UnityEngine.Debug:ExtractStackTraceNoAlloc (byte*,int,string)
+UnityEngine.StackTraceUtility:ExtractStackTrace ()
+UnityEngine.DebugLogHandler:Internal_Log (UnityEngine.LogType,UnityEngine.LogOption,string,UnityEngine.Object)
+UnityEngine.DebugLogHandler:LogFormat (UnityEngine.LogType,UnityEngine.Object,string,object[])
+UnityEngine.Logger:Log (UnityEngine.LogType,object)
+UnityEngine.Debug:Log (object)
+LaneGeneratorEditor:ReportFloorMeshGeometry () (at Assets/Editor/LaneGeneratorEditor.cs:56)
+PolishValidation:Run () (at Assets/Editor/PolishValidation.cs:62)
+
+(Filename: Assets/Editor/LaneGeneratorEditor.cs Line: 56)
+
+--- Floor instance report: LaneFloor ---
+UnityEngine.Debug:ExtractStackTraceNoAlloc (byte*,int,string)
+UnityEngine.StackTraceUtility:ExtractStackTrace ()
+UnityEngine.DebugLogHandler:Internal_Log (UnityEngine.LogType,UnityEngine.LogOption,string,UnityEngine.Object)
+UnityEngine.DebugLogHandler:LogFormat (UnityEngine.LogType,UnityEngine.Object,string,object[])
+UnityEngine.Logger:Log (UnityEngine.LogType,object)
+UnityEngine.Debug:Log (object)
+LaneGeneratorEditor:ReportFloorInstances (UnityEngine.Transform) (at Assets/Editor/LaneGeneratorEditor.cs:94)
+LaneGeneratorEditor:ReportFloorMeshGeometry () (at Assets/Editor/LaneGeneratorEditor.cs:59)
+PolishValidation:Run () (at Assets/Editor/PolishValidation.cs:62)
+
+(Filename: Assets/Editor/LaneGeneratorEditor.cs Line: 94)
+
+LaneGenerator/LaneFloor: tile roots=256, renderers=256
+UnityEngine.Debug:ExtractStackTraceNoAlloc (byte*,int,string)
+UnityEngine.StackTraceUtility:ExtractStackTrace ()
+UnityEngine.DebugLogHandler:Internal_Log (UnityEngine.LogType,UnityEngine.LogOption,string,UnityEngine.Object)
+UnityEngine.DebugLogHandler:LogFormat (UnityEngine.LogType,UnityEngine.Object,string,object[])
+UnityEngine.Logger:Log (UnityEngine.LogType,object)
+UnityEngine.Debug:Log (object)
+LaneGeneratorEditor:ReportFloorInstances (UnityEngine.Transform) (at Assets/Editor/LaneGeneratorEditor.cs:96)
+LaneGeneratorEditor:ReportFloorMeshGeometry () (at Assets/Editor/LaneGeneratorEditor.cs:59)
+PolishValidation:Run () (at Assets/Editor/PolishValidation.cs:62)
+
+(Filename: Assets/Editor/LaneGeneratorEditor.cs Line: 96)
+
+[0] Tile_00_00: worldBounds=Center: (0.50, -0.08, 0.50), Extents: (0.49, 0.08, 0.49), worldY=-0,15000..0,00000, transformPos=(0.50, -0.08, 0.50), rotation=(0.00, 0.00, 0.00), scale=(0.98, 0.15, 0.98), mesh=Cube, localBounds=Center: (0.00, 0.00, 0.00), Extents: (0.50, 0.50, 0.50), subMeshes=1, vertices=24, materials=Lane Stone Variant [Universal Render Pipeline/Lit]
+UnityEngine.Debug:ExtractStackTraceNoAlloc (byte*,int,string)
+UnityEngine.StackTraceUtility:ExtractStackTrace ()
+UnityEngine.DebugLogHandler:Internal_Log (UnityEngine.LogType,UnityEngine.LogOption,string,UnityEngine.Object)
+UnityEngine.DebugLogHandler:LogFormat (UnityEngine.LogType,UnityEngine.Object,string,object[])
+UnityEngine.Logger:Log (UnityEngine.LogType,object)
+UnityEngine.Debug:Log (object)
+LaneGeneratorEditor:ReportRenderer (UnityEngine.Renderer,int) (at Assets/Editor/LaneGeneratorEditor.cs:160)
+LaneGeneratorEditor:ReportFloorInstances (UnityEngine.Transform) (at Assets/Editor/LaneGeneratorEditor.cs:97)
+LaneGeneratorEditor:ReportFloorMeshGeometry () (at Assets/Editor/LaneGeneratorEditor.cs:59)
+PolishValidation:Run () (at Assets/Editor/PolishValidation.cs:62)
+
+(Filename: Assets/Editor/LaneGeneratorEditor.cs Line: 160)
+
+Material Lane Stone Variant: baseMap=, baseColor=RGBA(0.306, 0.326, 0.358, 1.000), queue=2000, surface=0, zWrite=1
+UnityEngine.Debug:ExtractStackTraceNoAlloc (byte*,int,string)
+UnityEngine.StackTraceUtility:ExtractStackTrace ()
+UnityEngine.DebugLogHandler:Internal_Log (UnityEngine.LogType,UnityEngine.LogOption,string,UnityEngine.Object)
+UnityEngine.DebugLogHandler:LogFormat (UnityEngine.LogType,UnityEngine.Object,string,object[])
+UnityEngine.Logger:Log (UnityEngine.LogType,object)
+UnityEngine.Debug:Log (object)
+LaneGeneratorEditor:ReportRenderer (UnityEngine.Renderer,int) (at Assets/Editor/LaneGeneratorEditor.cs:163)
+LaneGeneratorEditor:ReportFloorInstances (UnityEngine.Transform) (at Assets/Editor/LaneGeneratorEditor.cs:97)
+LaneGeneratorEditor:ReportFloorMeshGeometry () (at Assets/Editor/LaneGeneratorEditor.cs:59)
+PolishValidation:Run () (at Assets/Editor/PolishValidation.cs:62)
+
+(Filename: Assets/Editor/LaneGeneratorEditor.cs Line: 163)
+
+All floor renderers: world bounds=Center: (4.00, -0.08, 16.00), Extents: (3.99, 0.08, 15.99), Y=-0,150000..0,000000; group position=(0.00, 0.00, 0.00), rotation=(0.00, 0.00, 0.00), scale=(1.00, 1.00, 1.00)
+UnityEngine.Debug:ExtractStackTraceNoAlloc (byte*,int,string)
+UnityEngine.StackTraceUtility:ExtractStackTrace ()
+UnityEngine.DebugLogHandler:Internal_Log (UnityEngine.LogType,UnityEngine.LogOption,string,UnityEngine.Object)
+UnityEngine.DebugLogHandler:LogFormat (UnityEngine.LogType,UnityEngine.Object,string,object[])
+UnityEngine.Logger:Log (UnityEngine.LogType,object)
+UnityEngine.Debug:Log (object)
+LaneGeneratorEditor:ReportFloorInstances (UnityEngine.Transform) (at Assets/Editor/LaneGeneratorEditor.cs:102)
+LaneGeneratorEditor:ReportFloorMeshGeometry () (at Assets/Editor/LaneGeneratorEditor.cs:59)
+PolishValidation:Run () (at Assets/Editor/PolishValidation.cs:62)
+
+(Filename: Assets/Editor/LaneGeneratorEditor.cs Line: 102)
+
+Positive-area bounds overlaps within LaneGenerator/LaneFloor: 0
+UnityEngine.Debug:ExtractStackTraceNoAlloc (byte*,int,string)
+UnityEngine.StackTraceUtility:ExtractStackTrace ()
+UnityEngine.DebugLogHandler:Internal_Log (UnityEngine.LogType,UnityEngine.LogOption,string,UnityEngine.Object)
+UnityEngine.DebugLogHandler:LogFormat (UnityEngine.LogType,UnityEngine.Object,string,object[])
+UnityEngine.Logger:Log (UnityEngine.LogType,object)
+UnityEngine.Debug:Log (object)
+LaneGeneratorEditor:ReportFloorInstances (UnityEngine.Transform) (at Assets/Editor/LaneGeneratorEditor.cs:111)
+LaneGeneratorEditor:ReportFloorMeshGeometry () (at Assets/Editor/LaneGeneratorEditor.cs:59)
+PolishValidation:Run () (at Assets/Editor/PolishValidation.cs:62)
+
+(Filename: Assets/Editor/LaneGeneratorEditor.cs Line: 111)
+
+Scene floor audit: active floor renderers=256, possible coplanar surface pairs=0. Bounds candidates require mesh inspection to confirm.
+UnityEngine.Debug:ExtractStackTraceNoAlloc (byte*,int,string)
+UnityEngine.StackTraceUtility:ExtractStackTrace ()
+UnityEngine.DebugLogHandler:Internal_Log (UnityEngine.LogType,UnityEngine.LogOption,string,UnityEngine.Object)
+UnityEngine.DebugLogHandler:LogFormat (UnityEngine.LogType,UnityEngine.Object,string,object[])
+UnityEngine.Logger:Log (UnityEngine.LogType,object)
+UnityEngine.Debug:Log (object)
+LaneGeneratorEditor:ReportFloorMeshGeometry () (at Assets/Editor/LaneGeneratorEditor.cs:89)
+PolishValidation:Run () (at Assets/Editor/PolishValidation.cs:62)
+
+(Filename: Assets/Editor/LaneGeneratorEditor.cs Line: 89)
+
+GPU Resident Drawer created.
+RENDERED polish-overview
+UnityEngine.Debug:ExtractStackTraceNoAlloc (byte*,int,string)
+UnityEngine.StackTraceUtility:ExtractStackTrace ()
+UnityEngine.DebugLogHandler:Internal_Log (UnityEngine.LogType,UnityEngine.LogOption,string,UnityEngine.Object)
+UnityEngine.DebugLogHandler:LogFormat (UnityEngine.LogType,UnityEngine.Object,string,object[])
+UnityEngine.Logger:Log (UnityEngine.LogType,object)
+UnityEngine.Debug:Log (object)
+PolishValidation:Render (string,UnityEngine.Vector3,single,int,int) (at Assets/Editor/PolishValidation.cs:110)
+PolishValidation:Run () (at Assets/Editor/PolishValidation.cs:63)
+
+(Filename: Assets/Editor/PolishValidation.cs Line: 110)
+
+RENDERED polish-overview
+UnityEngine.Debug:ExtractStackTraceNoAlloc (byte*,int,string)
+UnityEngine.StackTraceUtility:ExtractStackTrace ()
+UnityEngine.DebugLogHandler:Internal_Log (UnityEngine.LogType,UnityEngine.LogOption,string,UnityEngine.Object)
+UnityEngine.DebugLogHandler:LogFormat (UnityEngine.LogType,UnityEngine.Object,string,object[])
+UnityEngine.Logger:Log (UnityEngine.LogType,object)
+UnityEngine.Debug:Log (object)
+PolishValidation:Render (string,UnityEngine.Vector3,single,int,int) (at Assets/Editor/PolishValidation.cs:110)
+PolishValidation:Run () (at Assets/Editor/PolishValidation.cs:64)
+
+(Filename: Assets/Editor/PolishValidation.cs Line: 110)
+
+RENDERED polish-gameplay
+UnityEngine.Debug:ExtractStackTraceNoAlloc (byte*,int,string)
+UnityEngine.StackTraceUtility:ExtractStackTrace ()
+UnityEngine.DebugLogHandler:Internal_Log (UnityEngine.LogType,UnityEngine.LogOption,string,UnityEngine.Object)
+UnityEngine.DebugLogHandler:LogFormat (UnityEngine.LogType,UnityEngine.Object,string,object[])
+UnityEngine.Logger:Log (UnityEngine.LogType,object)
+UnityEngine.Debug:Log (object)
+PolishValidation:Render (string,UnityEngine.Vector3,single,int,int) (at Assets/Editor/PolishValidation.cs:110)
+PolishValidation:Run () (at Assets/Editor/PolishValidation.cs:65)
+
+(Filename: Assets/Editor/PolishValidation.cs Line: 110)
+
+RENDERED polish-spawn
+UnityEngine.Debug:ExtractStackTraceNoAlloc (byte*,int,string)
+UnityEngine.StackTraceUtility:ExtractStackTrace ()
+UnityEngine.DebugLogHandler:Internal_Log (UnityEngine.LogType,UnityEngine.LogOption,string,UnityEngine.Object)
+UnityEngine.DebugLogHandler:LogFormat (UnityEngine.LogType,UnityEngine.Object,string,object[])
+UnityEngine.Logger:Log (UnityEngine.LogType,object)
+UnityEngine.Debug:Log (object)
+PolishValidation:Render (string,UnityEngine.Vector3,single,int,int) (at Assets/Editor/PolishValidation.cs:110)
+PolishValidation:Run () (at Assets/Editor/PolishValidation.cs:66)
+
+(Filename: Assets/Editor/PolishValidation.cs Line: 110)
+
+RENDERED polish-goal
+UnityEngine.Debug:ExtractStackTraceNoAlloc (byte*,int,string)
+UnityEngine.StackTraceUtility:ExtractStackTrace ()
+UnityEngine.DebugLogHandler:Internal_Log (UnityEngine.LogType,UnityEngine.LogOption,string,UnityEngine.Object)
+UnityEngine.DebugLogHandler:LogFormat (UnityEngine.LogType,UnityEngine.Object,string,object[])
+UnityEngine.Logger:Log (UnityEngine.LogType,object)
+UnityEngine.Debug:Log (object)
+PolishValidation:Render (string,UnityEngine.Vector3,single,int,int) (at Assets/Editor/PolishValidation.cs:110)
+PolishValidation:Run () (at Assets/Editor/PolishValidation.cs:67)
+
+(Filename: Assets/Editor/PolishValidation.cs Line: 110)
+
+GPU Resident Drawer disposed.
+RENDERED polish-mobile-preset
+UnityEngine.Debug:ExtractStackTraceNoAlloc (byte*,int,string)
+UnityEngine.StackTraceUtility:ExtractStackTrace ()
+UnityEngine.DebugLogHandler:Internal_Log (UnityEngine.LogType,UnityEngine.LogOption,string,UnityEngine.Object)
+UnityEngine.DebugLogHandler:LogFormat (UnityEngine.LogType,UnityEngine.Object,string,object[])
+UnityEngine.Logger:Log (UnityEngine.LogType,object)
+UnityEngine.Debug:Log (object)
+PolishValidation:Render (string,UnityEngine.Vector3,single,int,int) (at Assets/Editor/PolishValidation.cs:110)
+PolishValidation:Run () (at Assets/Editor/PolishValidation.cs:71)
+
+(Filename: Assets/Editor/PolishValidation.cs Line: 110)
+
+RENDERED polish-mobile-preset
+UnityEngine.Debug:ExtractStackTraceNoAlloc (byte*,int,string)
+UnityEngine.StackTraceUtility:ExtractStackTrace ()
+UnityEngine.DebugLogHandler:Internal_Log (UnityEngine.LogType,UnityEngine.LogOption,string,UnityEngine.Object)
+UnityEngine.DebugLogHandler:LogFormat (UnityEngine.LogType,UnityEngine.Object,string,object[])
+UnityEngine.Logger:Log (UnityEngine.LogType,object)
+UnityEngine.Debug:Log (object)
+PolishValidation:Render (string,UnityEngine.Vector3,single,int,int) (at Assets/Editor/PolishValidation.cs:110)
+PolishValidation:Run () (at Assets/Editor/PolishValidation.cs:72)
+
+(Filename: Assets/Editor/PolishValidation.cs Line: 110)
+
+POLISH PASSED: renderers=440, shared materials=9, triangles=24230
+UnityEngine.Debug:ExtractStackTraceNoAlloc (byte*,int,string)
+UnityEngine.StackTraceUtility:ExtractStackTrace ()
+UnityEngine.DebugLogHandler:Internal_Log (UnityEngine.LogType,UnityEngine.LogOption,string,UnityEngine.Object)
+UnityEngine.DebugLogHandler:LogFormat (UnityEngine.LogType,UnityEngine.Object,string,object[])
+UnityEngine.Logger:Log (UnityEngine.LogType,object)
+UnityEngine.Debug:Log (object)
+PolishValidation:Run () (at Assets/Editor/PolishValidation.cs:75)
+
+(Filename: Assets/Editor/PolishValidation.cs Line: 75)
+
+MonoPathRemapper: Attempts to remap: 11619; Successful remaps: 2
+Serialized file version minimum: 23, current 23
+Importing 'GUID: 00000000000000009000000000000000 - Path: ProjectSettings/QualitySettings.asset' with importer (LibraryAssetImporter)
+Imported 'GUID: 00000000000000009000000000000000' -> (Import Result ID: '8151b601d05d3e12de314c2aa1f82962') in 0.014 seconds [static dependencies only]. Details - ImportResultOutputID=2a108b3da874f726c62fbe5f12be4a8a DependenciesID=6180c49ef29638684367d2893c04e070 StaticDependenciesID=5b19720d9149525484b40148944c8e26 
+Refreshing native plugins compatible for Editor in 5.64 ms, found 4 plugins.
+
+Asset Pipeline Refresh (id=cea088f1e338b4f478fe86f036d1a9ca): Total: 0.344 seconds - Initiated by StopAssetImportingV2(NoUpdateAssetOptions)
+	(Values over 0.05ms)
+	Summary:
+		Imports: total=1 (actual=1, local cache=0, cache server=0)
+		Asset DB Process Time: managed=3 ms, native=311 ms
+		Asset DB Callback time: managed=17 ms, native=11 ms
+		Scripting: domain reloads=0, domain reload time=0 ms, compile time=0 ms, other=0 ms
+		Project Asset Count: scripts=1421, non-scripts=4234
+		Asset File Changes: new=0, changed=0, moved=0, deleted=0
+		Scan Filter Count: 1
+	ApplyChangesToAssetFolders: 0.271ms
+	Scan: 44.627ms
+	Collect global state as custom dependencies: 0.500ms
+	ProcessAssetsWithTransientArtifactChanges: 0.220ms
+	CategorizeAssets: 227.278ms
+	ImportOutOfDateAssets: 26.852ms (2.725ms without children)
+		ImportManagerImport: 18.985ms (4.325ms without children)
+			UpdateCategorizedAssets: 0.054ms
+		ReloadNativeAssets: 0.586ms
+		UnloadImportedAssets: 0.395ms
+		EnsureUptoDateAssetsAreRegisteredWithGuidPM: 3.538ms
+		ImportSchedulerStart: 0.616ms
+	PostProcessAllAssets: 22.615ms
+		XRBuildSystem.XRAssetImported 5.348ms
+		MonoPostProcessAllAssets: 17.090ms
+			AssetPostprocessor.OnPostprocessAllAssets 11.597ms
+			SyncVS.PostprocessSyncProject 3.085ms
+			ProjectSettingsPostprocessor.OnPostprocessAllAssets 0.700ms
+			AssetChangedListener.OnPostprocessAllAssets 0.476ms
+			ShaderGraphAssetPostProcessor.OnPostprocessAllAssets 0.210ms
+			MaterialPostprocessor.OnPostprocessAllAssets 0.205ms
+			RenderPipelineGlobalSettingsPostprocessor.OnPostprocessAllAssets 0.141ms
+	PostAssetChangesProfiler: 6.122ms
+	GatherAllCurrentPrimaryImportResultRevisions: 0.750ms
+	UnloadStreamsBegin: 0.618ms
+	PersistCurrentRevisions: 0.478ms
+	Untracked: 13.781ms
+
+[Physics::Module] Cleanup current backend.
+[Physics::Module] Id: 0xf2b8ea05
+Input System module state changed to: ShutdownInProgress.
+Input Polling Thread exited.
+Input System module state changed to: Shutdown.
+[Licensing::IpcConnector] LicenseClient-dnclv-notifications channel disconnected successfully.
+[Licensing::IpcConnector] LicenseClient-dnclv channel disconnected successfully.
+Unity Data Store service was successfully shut down
+UDS shutting down local client system
+Shut down UDS service system complete
+AcceleratorClientConnectionCallback - disconnected - :0
+Cleanup mono
+CodeReloadManager destroyed
+Checking for leaked weakptr:
+  Found no leaked weakptrs.
+[Package Manager] Server process was shutdown
+##utp:{"type":"MemoryLeaks","version":2,"phase":"Immediate","time":1791873814918,"processId":51492,"allocatedMemory":20405392,"memoryLabels":[{"Default":192308},{"Permanent":15516},{"NewDelete":69039},{"Thread":4198104},{"Manager":819173},{"VertexData":104},{"Geometry":816},{"Texture":24},{"Shader":850320},{"Material":24},{"GfxDevice":56040},{"Animation":952},{"Audio":1272},{"FreeType":8},{"FontEngine":736},{"Physics":1970},{"Physics2D":16},{"Serialization":33088},{"Input":42840},{"JobScheduler":256},{"TextLib":336},{"Mono":48},{"MonoCode":64},{"ScriptingNativeRuntime":1271576},{"BaseObject":49168},{"Resource":1208},{"Renderer":2384},{"Transform":4685},{"File":7397},{"WebCam":616},{"Culling":32},{"Terrain":11442},{"Wind":24},{"STL":40},{"String":513868},{"StaticString":3808},{"Utility":2673718},{"Curl":2579},{"PoolAlloc":2504},{"AI":80},{"TypeTree":17165},{"ScriptManager":12640},{"CodeReload":448},{"RuntimeInitializeOnLoadManager":64},{"Sprites":102},{"SpriteAtlas":120},{"GI":7816},{"Director":8296},{"CloudService":7296},{"WebRequest":5225},{"VR":49650},{"SceneManager":608},{"Video":64},{"LazyScriptCache":32},{"Camera":729},{"Secure":2377},{"SerializationCache":9256},{"APIUpdating":10320},{"Subsystems":336},{"VirtualTexturing":57888},{"StaticSafetyDebugInfo":278528},{"Analytics":768},{"Hierarchy":1188},{"UIElements":40},{"CoreStats":14456},{"Identifiers":7152},{"Gui":128},{"EditorUtility":147440},{"VersionControl":8},{"Undo":931},{"AssetDatabase":8866358},{"AssetImporter":40},{"EditorGi":328},{"UnityConnect":40441},{"Upm":1912},{"UpmDiagnostics":8},{"AssetCompliance":96},{"DrivenProperties":72},{"LocalIPC":260},{"ProfilerEditor":9746},{"CoreBusinessMetrics":3600},{"Windowing":456},{"Licensing":12757},{"AssetReference":32},{"IPCStream":32}]}

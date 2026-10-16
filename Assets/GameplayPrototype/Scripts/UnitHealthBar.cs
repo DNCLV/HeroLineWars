@@ -1,0 +1,114 @@
+using UnityEngine;
+
+/// <summary>Small camera-facing mesh bar, created only after a unit first takes damage.</summary>
+public sealed class UnitHealthBar : MonoBehaviour
+{
+    const float BarHeight = .075f;
+    static readonly Color BackgroundColor = new Color(.035f, .045f, .055f, 1f);
+    static Material backgroundMaterial;
+    static Material friendlyFillMaterial;
+    static Material enemyFillMaterial;
+
+    Transform barRoot;
+    Transform fill;
+    GoblinHealth owner;
+    Camera viewCamera;
+    float verticalOffset;
+    float barWidth;
+    float fillAmount = 1f;
+
+    public void Show(GoblinHealth health, int current, int maximum)
+    {
+        owner = health;
+        if (!barRoot) CreateBar();
+        if (!barRoot) return;
+        fillAmount = maximum > 0 ? Mathf.Clamp01((float)current / maximum) : 0f;
+        UpdateFill();
+        barRoot.gameObject.SetActive(current < maximum);
+        PositionBar();
+    }
+
+    public void Hide()
+    {
+        if (barRoot) barRoot.gameObject.SetActive(false);
+    }
+
+    void LateUpdate()
+    {
+        if (!barRoot || !barRoot.gameObject.activeSelf || !owner) return;
+        PositionBar();
+    }
+
+    void CreateBar()
+    {
+        if (!owner) return;
+        Renderer[] renderers = owner.GetComponentsInChildren<Renderer>(true);
+        bool found = false;
+        Bounds bounds = new Bounds(owner.transform.position, Vector3.zero);
+        for (int i = 0; i < renderers.Length; i++)
+        {
+            Renderer renderer = renderers[i];
+            if (!renderer || renderer.name.Contains("Ring") || renderer.name.Contains("Marker")) continue;
+            if (!found) { bounds = renderer.bounds; found = true; }
+            else bounds.Encapsulate(renderer.bounds);
+        }
+
+        barWidth = found ? Mathf.Clamp(Mathf.Max(bounds.size.x, bounds.size.z) * .85f, .55f, 1.35f) : .7f;
+        verticalOffset = found ? Mathf.Max(.8f, bounds.max.y - owner.transform.position.y + .16f) : 1.5f;
+        viewCamera = Camera.main;
+        if (!backgroundMaterial)
+            backgroundMaterial = GameplayVisuals.GetMaterial("HLW Unit HP Background", BackgroundColor);
+        UnitFaction faction = owner.GetComponent<UnitFaction>();
+        bool enemy = faction && faction.team == UnitTeam.Enemy;
+        if (enemy && !enemyFillMaterial)
+            enemyFillMaterial = GameplayVisuals.GetMaterial("HLW Unit HP Enemy", new Color(.9f, .14f, .16f));
+        if (!enemy && !friendlyFillMaterial)
+            friendlyFillMaterial = GameplayVisuals.GetMaterial("HLW Unit HP Friendly", new Color(.14f, .78f, .42f));
+        if (!backgroundMaterial || (enemy ? !enemyFillMaterial : !friendlyFillMaterial)) return;
+
+        GameObject root = new GameObject("DamageHealthBar");
+        barRoot = root.transform;
+        barRoot.SetParent(owner.transform, true);
+        CreateQuad("Background", barRoot, backgroundMaterial, barWidth, BarHeight, 0f);
+        GameObject fillObject = CreateQuad("Fill", barRoot, enemy ? enemyFillMaterial : friendlyFillMaterial,
+            barWidth, BarHeight * .62f, -.003f);
+        fill = fillObject.transform;
+        barRoot.gameObject.SetActive(false);
+    }
+
+    GameObject CreateQuad(string objectName, Transform parent, Material material,
+        float width, float height, float depth)
+    {
+        GameObject quad = GameObject.CreatePrimitive(PrimitiveType.Quad);
+        quad.name = objectName;
+        Collider collider = quad.GetComponent<Collider>();
+        if (collider) Destroy(collider);
+        quad.transform.SetParent(parent, false);
+        quad.transform.localPosition = new Vector3(0f, 0f, depth);
+        quad.transform.localScale = new Vector3(width, height, 1f);
+        Renderer renderer = quad.GetComponent<Renderer>();
+        if (renderer)
+        {
+            renderer.sharedMaterial = material;
+            renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            renderer.receiveShadows = false;
+        }
+        return quad;
+    }
+
+    void PositionBar()
+    {
+        if (!owner) return;
+        if (!viewCamera) viewCamera = Camera.main;
+        barRoot.position = owner.transform.position + Vector3.up * verticalOffset;
+        if (viewCamera)
+            barRoot.rotation = Quaternion.LookRotation(-viewCamera.transform.forward, viewCamera.transform.up);
+    }
+
+    void UpdateFill()
+    {
+        if (!fill) return;
+        fill.localScale = new Vector3(Mathf.Max(.001f, barWidth * fillAmount), BarHeight * .62f, 1f);
+        fill.localPosition = new Vector3(-barWidth * (1f - fillAmount) * .5f, 0f, -.003f);
+    }
+}
