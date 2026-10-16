@@ -7,7 +7,7 @@ using UnityEngine.UI;
 [DefaultExecutionOrder(-50)]
 public sealed class GameplayHud : MonoBehaviour
 {
-    const int HudLayoutVersion = 14;
+    const int HudLayoutVersion = 15;
     [Min(120f)] public float abilityButtonSize = 176f;
     [Min(96f)] public float autoAttackButtonSize = 136f;
     [Min(64f)] public float abilitySlotSize = 78f;
@@ -591,8 +591,9 @@ public sealed class GameplayHud : MonoBehaviour
     {
         float primarySize = autoAttackButtonSize;
         float slotSize = abilitySlotSize;
+        float clusterBottom = safeAreaPadding + 58f;
         CreateButton("AutoAttackButton", safeRoot, "AA",
-            new Vector2(-safeAreaPadding, safeAreaPadding), new Vector2(primarySize, primarySize),
+            new Vector2(-safeAreaPadding, clusterBottom), new Vector2(primarySize, primarySize),
             true, Gold, out autoAttackButton, out _, true);
         autoAttackButton.onClick.AddListener(TriggerAutoAttack);
 
@@ -600,7 +601,7 @@ public sealed class GameplayHud : MonoBehaviour
         // of the large primary attack button.
         fireballView = AbilityButtonView.Create(safeRoot, "FireballButton",
             new Vector2(slotSize, slotSize),
-            new Vector2(-safeAreaPadding - primarySize - 16f, safeAreaPadding + 4f), true,
+            new Vector2(-safeAreaPadding - primarySize - 16f, clusterBottom + 4f), true,
             fireballFrameOverride ? fireballFrameOverride : ornateButtonFrameSprite,
             fireballBackgroundOverride ? fireballBackgroundOverride : circleSprite,
             fireballIconOverride, buttonCyanSprite);
@@ -612,13 +613,13 @@ public sealed class GameplayHud : MonoBehaviour
         fireballButton.onClick.AddListener(ToggleFireballTargeting);
 
         CreatePlaceholderAbility("AbilitySlot2",
-            new Vector2(-safeAreaPadding - primarySize - 4f, safeAreaPadding + 94f),
+            new Vector2(-safeAreaPadding - primarySize - 4f, clusterBottom + 94f),
             2, out futureAbilitySlots[0], out futureAbilityLabels[0]);
         CreatePlaceholderAbility("AbilitySlot3",
-            new Vector2(-safeAreaPadding - 58f, safeAreaPadding + 150f),
+            new Vector2(-safeAreaPadding - 58f, clusterBottom + 150f),
             4, out futureAbilitySlots[1], out futureAbilityLabels[1]);
         CreatePlaceholderAbility("AbilitySlot4",
-            new Vector2(-safeAreaPadding, safeAreaPadding + 162f),
+            new Vector2(-safeAreaPadding, clusterBottom + 162f),
             6, out futureAbilitySlots[2], out futureAbilityLabels[2]);
     }
 
@@ -674,8 +675,8 @@ public sealed class GameplayHud : MonoBehaviour
         RectTransform rect = panel.GetComponent<RectTransform>();
         rect.anchorMin = rect.anchorMax = new Vector2(1f, 0f);
         rect.pivot = new Vector2(1f, 0f);
-        rect.anchoredPosition = new Vector2(-safeAreaPadding, safeAreaPadding + abilityButtonSize + 10f);
-        rect.sizeDelta = new Vector2(236f, 54f);
+        rect.anchoredPosition = new Vector2(-safeAreaPadding, safeAreaPadding);
+        rect.sizeDelta = new Vector2(320f, 46f);
         Image background = panel.GetComponent<Image>();
         background.sprite = capsuleSprite;
         background.type = capsuleSprite ? Image.Type.Sliced : Image.Type.Simple;
@@ -684,17 +685,17 @@ public sealed class GameplayHud : MonoBehaviour
         Outline outline = panel.GetComponent<Outline>();
         outline.effectColor = new Color(.36f, .72f, 1f, .72f);
         outline.effectDistance = new Vector2(1f, 1f);
-        heroLevelLabel = CreateText("HeroLevel", panel.transform, "LV 1", new Vector2(-78f, 8f),
+        heroLevelLabel = CreateText("HeroLevel", panel.transform, "LV 1", new Vector2(-116f, 7f),
             new Vector2(70f, 22f), 15, TextAnchor.MiddleCenter, Gold, false);
-        heroExperienceLabel = CreateText("HeroExperience", panel.transform, "0 / 70 XP", new Vector2(28f, 8f),
-            new Vector2(130f, 22f), 12, TextAnchor.MiddleCenter, Color.white, false);
-        heroExperienceFill = CreateImage("HeroXpFill", panel.transform, null, new Vector2(22f, -13f),
-            new Vector2(176f, 7f), new Color(.3f, .72f, 1f, 1f), false);
+        heroExperienceLabel = CreateText("HeroExperience", panel.transform, "0 / 70 XP", new Vector2(32f, 7f),
+            new Vector2(200f, 22f), 12, TextAnchor.MiddleCenter, Color.white, false);
+        heroExperienceFill = CreateImage("HeroXpFill", panel.transform, null, new Vector2(39f, -11f),
+            new Vector2(224f, 7f), new Color(.3f, .72f, 1f, 1f), false);
         heroExperienceFill.type = Image.Type.Filled;
         heroExperienceFill.fillMethod = Image.FillMethod.Horizontal;
         heroExperienceFill.fillOrigin = (int)Image.OriginHorizontal.Left;
-        Image frame = CreateImage("HeroXpFrame", panel.transform, healthBarFrameSprite, new Vector2(22f, -13f),
-            new Vector2(184f, 15f), new Color(.75f, .86f, 1f, 1f), false);
+        Image frame = CreateImage("HeroXpFrame", panel.transform, healthBarFrameSprite, new Vector2(39f, -11f),
+            new Vector2(234f, 15f), new Color(.75f, .86f, 1f, 1f), false);
         frame.type = healthBarFrameSprite ? Image.Type.Sliced : Image.Type.Simple;
         frame.preserveAspect = false;
     }
