@@ -7,8 +7,10 @@ using UnityEngine.UI;
 [DefaultExecutionOrder(-50)]
 public sealed class GameplayHud : MonoBehaviour
 {
-    const int HudLayoutVersion = 13;
+    const int HudLayoutVersion = 14;
     [Min(120f)] public float abilityButtonSize = 176f;
+    [Min(96f)] public float autoAttackButtonSize = 136f;
+    [Min(64f)] public float abilitySlotSize = 78f;
     [Min(8f)] public float safeAreaPadding = 18f;
     [Min(200f)] public float minimapWidth = 320f;
     [Min(109f)] public float minimapHeight = 190f;
@@ -61,6 +63,7 @@ public sealed class GameplayHud : MonoBehaviour
     Button itemsToggle;
     Button speedToggle;
     Button fireballButton;
+    Button autoAttackButton;
     Button archerButton;
     Button knightButton;
     Button wizardButton;
@@ -581,39 +584,50 @@ public sealed class GameplayHud : MonoBehaviour
 
     void BuildAbilityControls()
     {
-        // RectTransform.rect is still zero during Awake. Size from the configured
-        // artwork first, then adapt to the actual safe area in LateUpdate.
-        float size = abilityButtonSize;
+        float primarySize = autoAttackButtonSize;
+        float slotSize = abilitySlotSize;
+        CreateButton("AutoAttackButton", safeRoot, "AA",
+            new Vector2(-safeAreaPadding, safeAreaPadding), new Vector2(primarySize, primarySize),
+            true, Gold, out autoAttackButton, out _, true);
+
+        // Four compact abilities follow a right-thumb arc above and to the left
+        // of the large primary attack button.
         fireballView = AbilityButtonView.Create(safeRoot, "FireballButton",
-            new Vector2(size, size),
-            new Vector2(-safeAreaPadding, safeAreaPadding), true,
+            new Vector2(slotSize, slotSize),
+            new Vector2(-safeAreaPadding - primarySize - 16f, safeAreaPadding + 4f), true,
             fireballFrameOverride ? fireballFrameOverride : ornateButtonFrameSprite,
             fireballBackgroundOverride ? fireballBackgroundOverride : circleSprite,
             fireballIconOverride, buttonCyanSprite);
         fireballView.SetLayerScales(fireballFrameScale, fireballBackgroundScale, fireballIconScale);
         fireballButton = fireballView.Button;
         fireballView.SetLabel("FIREBALL");
+        MobileButtonPressFeedback fireballPress = fireballButton.gameObject.AddComponent<MobileButtonPressFeedback>();
+        fireballPress.Configure(fireballButton);
         fireballButton.onClick.AddListener(ToggleFireballTargeting);
 
-        CreatePlaceholderAbility("AbilitySlot2", new Vector2(-safeAreaPadding - size - 12f, safeAreaPadding + 6f),
+        CreatePlaceholderAbility("AbilitySlot2",
+            new Vector2(-safeAreaPadding - primarySize - 4f, safeAreaPadding + 94f),
             2, out futureAbilitySlots[0], out futureAbilityLabels[0]);
-        CreatePlaceholderAbility("AbilitySlot3", new Vector2(-safeAreaPadding - size - 80f, safeAreaPadding + 6f),
+        CreatePlaceholderAbility("AbilitySlot3",
+            new Vector2(-safeAreaPadding - 58f, safeAreaPadding + 150f),
             4, out futureAbilitySlots[1], out futureAbilityLabels[1]);
-        CreatePlaceholderAbility("AbilitySlot4", new Vector2(-safeAreaPadding - size - 148f, safeAreaPadding + 6f),
+        CreatePlaceholderAbility("AbilitySlot4",
+            new Vector2(-safeAreaPadding, safeAreaPadding + 162f),
             6, out futureAbilitySlots[2], out futureAbilityLabels[2]);
     }
 
     void ResizeAbilityButton()
     {
-        if (!fireballButton || !safeRoot) return;
+        if (!autoAttackButton || !safeRoot) return;
         float height = safeRoot.rect.height;
         float width = safeRoot.rect.width;
         if (height < 1f || width < 1f) return;
-        float size = Mathf.Min(abilityButtonSize,
-            (height - safeAreaPadding - 4f) / 1.045f,
-            (width - safeAreaPadding - 4f) / 1.045f);
-        size = Mathf.Max(72f, size);
-        RectTransform rect = fireballButton.GetComponent<RectTransform>();
+        float size = Mathf.Min(autoAttackButtonSize,
+            (height - safeAreaPadding - 4f) / 1.9f,
+            (width - safeAreaPadding - 4f) / 1.9f);
+        size = Mathf.Max(96f, size);
+        RectTransform rect = autoAttackButton ? autoAttackButton.GetComponent<RectTransform>() : null;
+        if (!rect) return;
         if (Mathf.Abs(rect.sizeDelta.x - size) < .5f) return;
         rect.sizeDelta = new Vector2(size, size);
     }
@@ -627,7 +641,7 @@ public sealed class GameplayHud : MonoBehaviour
         rect.anchorMin = rect.anchorMax = new Vector2(1f, 0f);
         rect.pivot = new Vector2(1f, 0f);
         rect.anchoredPosition = position;
-        rect.sizeDelta = new Vector2(62f, 62f);
+        rect.sizeDelta = new Vector2(abilitySlotSize, abilitySlotSize);
         Image image = slot.GetComponent<Image>();
         slotImage = image;
         image.sprite = circleSprite;
@@ -637,12 +651,14 @@ public sealed class GameplayHud : MonoBehaviour
         outline.effectColor = new Color(.2f, .6f, .78f, .42f);
         outline.effectDistance = new Vector2(1.5f, 1.5f);
         Image rim = CreateImage("OrnateFrame", slot.transform, ornateButtonFrameSprite,
-            Vector2.zero, new Vector2(68f, 54f), Color.white, false);
+            Vector2.zero, Vector2.one * (abilitySlotSize + 8f), Color.white, false);
         rim.preserveAspect = true;
         slot.GetComponent<Button>().interactable = false;
         slotLabel = CreateText("EmptySlotLabel", slot.transform, $"Lv {requiredLevel}", Vector2.zero,
-            new Vector2(62f, 62f), 13, TextAnchor.MiddleCenter,
+            Vector2.one * abilitySlotSize, 13, TextAnchor.MiddleCenter,
             new Color(.65f, .8f, .88f, .75f), false);
+        MobileButtonPressFeedback feedback = slot.AddComponent<MobileButtonPressFeedback>();
+        feedback.Configure(slot.GetComponent<Button>());
     }
 
     void BuildHeroProgressionPanel()
