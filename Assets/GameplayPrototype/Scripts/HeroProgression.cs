@@ -53,8 +53,6 @@ public sealed class HeroProgression : MonoBehaviour
     HeroAutoAttack autoAttack;
     FireballAbility fireball;
     HeroAbilityLoadout abilityLoadout;
-    TextMesh levelLabel;
-    Camera viewCamera;
 
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
     static void ResetStatics() { PlayerHero = null; }
@@ -88,7 +86,6 @@ public sealed class HeroProgression : MonoBehaviour
         isPlayerHero = playerControlled;
         enableExperience = playerControlled;
         if (playerControlled) PlayerHero = this;
-        EnsureLevelLabel();
         RecalculateDerivedStats(false);
     }
 
@@ -102,7 +99,6 @@ public sealed class HeroProgression : MonoBehaviour
         Stamina = startingStamina;
         LastCombatTime = float.NegativeInfinity;
         RecalculateDerivedStats(false);
-        RefreshLevelLabel();
     }
 
     public void RecordCombatAction() { LastCombatTime = Time.time; }
@@ -123,7 +119,6 @@ public sealed class HeroProgression : MonoBehaviour
             Stamina += staminaGrowth;
             RecalculateDerivedStats(true);
         }
-        RefreshLevelLabel();
     }
 
     public static void AwardNearbyExperience(Vector3 defeatedPosition, UnitArchetype archetype)
@@ -157,35 +152,6 @@ public sealed class HeroProgression : MonoBehaviour
             fireball.damage = Mathf.Max(1, Mathf.RoundToInt(baseSpellDamage + Intelligence * spellDamagePerIntelligence));
         if (!abilityLoadout) abilityLoadout = GetComponent<HeroAbilityLoadout>();
         if (abilityLoadout) abilityLoadout.RefreshUnlocks(Level);
-    }
-
-    void EnsureLevelLabel()
-    {
-        if (levelLabel) return;
-        GameObject label = new GameObject("HeroLevelLabel", typeof(TextMesh));
-        label.transform.SetParent(transform, false);
-        label.transform.localPosition = new Vector3(0f, 2.05f, 0f);
-        levelLabel = label.GetComponent<TextMesh>();
-        levelLabel.anchor = TextAnchor.MiddleCenter;
-        levelLabel.alignment = TextAlignment.Center;
-        levelLabel.characterSize = .11f;
-        levelLabel.fontSize = 46;
-        levelLabel.color = isPlayerHero ? new Color(1f, .86f, .36f) : new Color(1f, .42f, .28f);
-        levelLabel.GetComponent<MeshRenderer>().shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
-        RefreshLevelLabel();
-    }
-
-    void LateUpdate()
-    {
-        if (!levelLabel) EnsureLevelLabel();
-        if (!viewCamera) viewCamera = Camera.main;
-        if (levelLabel && viewCamera)
-            levelLabel.transform.rotation = Quaternion.LookRotation(-viewCamera.transform.forward, viewCamera.transform.up);
-    }
-
-    void RefreshLevelLabel()
-    {
-        if (levelLabel) levelLabel.text = $"Lv {Level}";
     }
 
     int ExperienceRequiredForLevel(int currentLevel) => Mathf.Max(1,
