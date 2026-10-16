@@ -40,6 +40,17 @@ public sealed class UnitHealthBar : MonoBehaviour
         if (barRoot) barRoot.gameObject.SetActive(false);
     }
 
+    void OnEnable()
+    {
+        if (barRoot && owner && !owner.IsDead)
+            barRoot.gameObject.SetActive(persistent || owner.CurrentHitPoints < owner.MaximumHitPoints);
+    }
+
+    void OnDisable()
+    {
+        if (barRoot) barRoot.gameObject.SetActive(false);
+    }
+
     void LateUpdate()
     {
         if (!barRoot || !barRoot.gameObject.activeSelf || !owner) return;
@@ -151,7 +162,9 @@ public sealed class UnitHealthBar : MonoBehaviour
         barRoot.position = owner.transform.position + Vector3.up * verticalOffset;
         if (viewCamera)
             barRoot.rotation = Quaternion.LookRotation(-viewCamera.transform.forward, viewCamera.transform.up);
-        barRoot.localScale = Vector3.one;
+        float zoomScale = viewCamera && viewCamera.orthographic
+            ? Mathf.Clamp(viewCamera.orthographicSize / 12f, .82f, 1.55f) : 1f;
+        barRoot.localScale = Vector3.one * zoomScale;
     }
 
     void UpdateFill()
