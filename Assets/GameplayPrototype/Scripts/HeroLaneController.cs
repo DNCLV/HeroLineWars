@@ -29,6 +29,17 @@ public sealed class HeroLaneController : MonoBehaviour
     public bool IsMoving { get; private set; }
     public Vector3 Destination => destination;
 
+    public void CancelMovement()
+    {
+        destination = transform.position;
+        hasDestination = false;
+        IsMoving = false;
+        planarVelocity = Vector2.zero;
+        route.Clear();
+        routeIndex = 0;
+        if (destinationMarker) destinationMarker.gameObject.SetActive(false);
+    }
+
     void Awake()
     {
         GameplayInputRouter.EnsureInstance(transform.parent);

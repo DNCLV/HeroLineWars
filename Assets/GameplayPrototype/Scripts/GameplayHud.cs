@@ -131,7 +131,7 @@ public sealed class GameplayHud : MonoBehaviour
         // With Unity's reload-scene/domain options disabled, a subsequent Play
         // session can enable this component without constructing the overlay anew.
         if (Application.isPlaying && (builtHudLayoutVersion != HudLayoutVersion ||
-            !canvas || !safeRoot || !unitsToggle || !fireballButton))
+            !canvas || !safeRoot || !unitsToggle || !fireballButton || !autoAttackButton))
         {
             EnsureEventSystem();
             LoadFantasySprites();
@@ -153,7 +153,8 @@ public sealed class GameplayHud : MonoBehaviour
 
     void EnsureHudInitialized()
     {
-        if (builtHudLayoutVersion == HudLayoutVersion && canvas && safeRoot && unitsToggle && itemsToggle && speedToggle && fireballButton &&
+        if (builtHudLayoutVersion == HudLayoutVersion && canvas && safeRoot && unitsToggle && itemsToggle && speedToggle &&
+            fireballButton && autoAttackButton &&
             goldLabel && incomeLabel && payoutLabel && blueBaseLabel && redBaseLabel)
         {
             canvas.gameObject.SetActive(true);
@@ -164,6 +165,7 @@ public sealed class GameplayHud : MonoBehaviour
             itemsToggle.gameObject.SetActive(true);
             speedToggle.gameObject.SetActive(true);
             fireballButton.gameObject.SetActive(true);
+            autoAttackButton.gameObject.SetActive(true);
             return;
         }
 
@@ -222,6 +224,9 @@ public sealed class GameplayHud : MonoBehaviour
         }
 
         bool running = matchLoop && matchLoop.IsRunning;
+        if (autoAttackButton)
+            autoAttackButton.interactable = running && HeroProgression.PlayerHero &&
+                HeroProgression.PlayerHero.Health && !HeroProgression.PlayerHero.Health.IsDead;
         UpdateFireball(running);
         UpdateHeroProgression();
         UpdateSpeedVisual();
@@ -589,6 +594,7 @@ public sealed class GameplayHud : MonoBehaviour
         CreateButton("AutoAttackButton", safeRoot, "AA",
             new Vector2(-safeAreaPadding, safeAreaPadding), new Vector2(primarySize, primarySize),
             true, Gold, out autoAttackButton, out _, true);
+        autoAttackButton.onClick.AddListener(TriggerAutoAttack);
 
         // Four compact abilities follow a right-thumb arc above and to the left
         // of the large primary attack button.
@@ -839,6 +845,16 @@ public sealed class GameplayHud : MonoBehaviour
             SetButtonColors(unitsToggle, Blue);
             SetButtonColors(itemsToggle, Blue);
         }
+    }
+
+    void TriggerAutoAttack()
+    {
+        HeroProgression player = HeroProgression.PlayerHero;
+        if (!player || !player.Health || player.Health.IsDead) return;
+        HeroLaneController movement = player.GetComponent<HeroLaneController>();
+        if (movement) movement.CancelMovement();
+        HeroAutoAttack attack = player.GetComponent<HeroAutoAttack>();
+        if (attack) attack.TryAttackInRange(true);
     }
 
     void SendArcher() { if (!sender) sender = FindAnyObjectByType<FriendlyUnitSender>(); if (sender) sender.SendArcher(); }
