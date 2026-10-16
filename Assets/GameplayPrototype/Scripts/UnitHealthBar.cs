@@ -16,20 +16,23 @@ public sealed class UnitHealthBar : MonoBehaviour
     float verticalOffset;
     float barWidth;
     float fillAmount = 1f;
+    bool persistent;
 
-    public void Show(GoblinHealth health, int current, int maximum)
+    public void Show(GoblinHealth health, int current, int maximum, bool keepVisible = false)
     {
         owner = health;
+        persistent |= keepVisible;
         if (!barRoot) CreateBar();
         if (!barRoot) return;
         fillAmount = maximum > 0 ? Mathf.Clamp01((float)current / maximum) : 0f;
         UpdateFill();
-        barRoot.gameObject.SetActive(current < maximum);
+        barRoot.gameObject.SetActive(persistent || current < maximum);
         PositionBar();
     }
 
     public void Hide()
     {
+        persistent = false;
         if (barRoot) barRoot.gameObject.SetActive(false);
     }
 
@@ -48,7 +51,8 @@ public sealed class UnitHealthBar : MonoBehaviour
         for (int i = 0; i < renderers.Length; i++)
         {
             Renderer renderer = renderers[i];
-            if (!renderer || renderer.name.Contains("Ring") || renderer.name.Contains("Marker")) continue;
+            if (!renderer || renderer.name.Contains("Ring") || renderer.name.Contains("Marker") ||
+                renderer.name.Contains("Level") || renderer.name.Contains("HealthBar")) continue;
             if (!found) { bounds = renderer.bounds; found = true; }
             else bounds.Encapsulate(renderer.bounds);
         }

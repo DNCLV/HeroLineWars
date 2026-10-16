@@ -115,6 +115,54 @@ public static class GameplayPrototypeEditor
         Debug.Log("Two-sided GameplayPrototype with economy and match loop is ready. Save the scene, then press Play.");
     }
 
+    public static void NormalizeClassicGameplayConfiguration(LaneGenerator lane)
+    {
+        if (!lane) return;
+        Scene scene = lane.gameObject.scene;
+        GameObject group = scene.GetRootGameObjects().FirstOrDefault(root => root.name == "GameplayPrototype");
+        if (!group) group = new GameObject("GameplayPrototype");
+        if (group.scene != scene) SceneManager.MoveGameObjectToScene(group, scene);
+        group.SetActive(true);
+
+        GoblinWaveSpawner spawner = group.GetComponent<GoblinWaveSpawner>();
+        if (!spawner) spawner = Undo.AddComponent<GoblinWaveSpawner>(group);
+        FriendlyUnitSender sender = group.GetComponent<FriendlyUnitSender>();
+        if (!sender) sender = Undo.AddComponent<FriendlyUnitSender>(group);
+        MatchLoopController matchLoop = group.GetComponent<MatchLoopController>();
+        if (!matchLoop) matchLoop = Undo.AddComponent<MatchLoopController>(group);
+        GameplayHud hud = group.GetComponent<GameplayHud>();
+        if (!hud) hud = Undo.AddComponent<GameplayHud>(group);
+        if (!group.GetComponent<UnitCombatRegistry>()) Undo.AddComponent<UnitCombatRegistry>(group);
+        if (!group.GetComponent<GameplayInputRouter>()) Undo.AddComponent<GameplayInputRouter>(group);
+
+        spawner.lane = lane;
+        spawner.matchLoop = matchLoop;
+        sender.spawner = spawner;
+        sender.matchLoop = matchLoop;
+        hud.matchLoop = matchLoop;
+        sender.archerCost = 5;
+        sender.knightCost = 9;
+        sender.wizardCost = 14;
+        matchLoop.startingGold = 8;
+        matchLoop.startingIncome = 1;
+        matchLoop.payoutInterval = 10f;
+        matchLoop.goldSpentPerIncome = 25;
+        matchLoop.survivalDuration = 360f;
+        spawner.minuteOneSpawnCount = 12;
+        spawner.minuteTwoSpawnCount = 18;
+        spawner.minuteThreeSpawnCount = 24;
+        spawner.minuteFourSpawnCount = 30;
+        spawner.minuteFiveSpawnCount = 36;
+        spawner.minuteSixSpawnCount = 42;
+
+        EditorUtility.SetDirty(group);
+        EditorUtility.SetDirty(spawner);
+        EditorUtility.SetDirty(sender);
+        EditorUtility.SetDirty(matchLoop);
+        EditorUtility.SetDirty(hud);
+        EditorSceneManager.MarkSceneDirty(scene);
+    }
+
     static GoblinWaveSpawner.EnemyPrefab Enemy(UnitArchetype type, string path) =>
         new GoblinWaveSpawner.EnemyPrefab { archetype = type, prefab = AssetDatabase.LoadAssetAtPath<GameObject>(path) };
 

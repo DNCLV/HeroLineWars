@@ -16,7 +16,11 @@ public sealed class LaneUnitCombat : MonoBehaviour
     [Min(0f)] public float baseStoppingInset = .8f;
     [Min(.1f)] public float modelScale = 1f;
     public float modelYawOffset;
-    [Range(0, 2)] public int assignedLane;
+    [Range(0, 1)] public int assignedLane;
+    [Tooltip("Stationary defenders can fight but never advance toward a base.")]
+    public bool stationaryDefender;
+    [Tooltip("Disable for the player hero, whose existing HeroAutoAttack owns attacks.")]
+    public bool performAttacks = true;
 
     public UnitFaction Faction { get; private set; }
     public GoblinHealth Health { get; private set; }
@@ -61,29 +65,26 @@ public sealed class LaneUnitCombat : MonoBehaviour
         Health.ConfigureHitPoints(maximumHitPoints);
     }
 
-    public void ConfigureLane(int laneIndex) => assignedLane = Mathf.Clamp(laneIndex, 0, Mathf.Max(1, lane ? lane.battleLaneCount - 1 : 2));
+    public void ConfigureLane(int laneIndex) => assignedLane = Mathf.Clamp(laneIndex, 0, Mathf.Max(1, lane ? lane.battleLaneCount - 1 : 1));
 
     void Update()
     {
         if (!lane || !Faction || IsDead) return;
-        bool separatedTarget = target && target.lane == lane &&
-            lane.transform.InverseTransformPoint(transform.position).z > lane.BranchEndWorld &&
-            lane.transform.InverseTransformPoint(target.transform.position).z > lane.BranchEndWorld &&
-            target.assignedLane != assignedLane;
+        bool separatedTarget = target && target.lane == lane && target.assignedLane != assignedLane;
         if (separatedTarget) target = null;
-        if ((!target || target.IsDead || !target.Faction || target.Faction.team == Faction.team || target.lane != lane || separatedTarget) &&
+        if (performAttacks && (!target || target.IsDead || !target.Faction || target.Faction.team == Faction.team || target.lane != lane || separatedTarget) &&
             Time.time >= nextTargetSearch)
         {
             target = UnitCombatRegistry.FindNearestOpponent(Faction.team, lane, transform.position, engagementRange);
             nextTargetSearch = Time.time + targetRefreshInterval;
         }
 
-        if (target && !target.IsDead && target.Faction && target.Health && target.Faction.team != Faction.team)
+        if (performAttacks && target && !target.IsDead && target.Faction && target.Health && target.Faction.team != Faction.team)
         {
             EngageTarget();
             return;
         }
-        AdvanceToOpposingBase();
+        if (!stationaryDefender) AdvanceToOpposingBase();
     }
 
     void EngageTarget()
@@ -97,6 +98,7 @@ public sealed class LaneUnitCombat : MonoBehaviour
         Face(direction);
         if (distance > attackRange)
         {
+            if (stationaryDefender) return;
             float step = Mathf.Min(movementSpeed * Time.deltaTime, distance - attackRange);
             local.x += direction.x * step;
             local.z += direction.y * step;
@@ -143,12 +145,8 @@ public sealed class LaneUnitCombat : MonoBehaviour
         float step = Mathf.Min(remaining, movementSpeed * Time.deltaTime);
         float oldX = local.x;
         local.z += direction * step;
-        // Stay in the assigned road until the shared funnel, then converge to
-        // the single goal road. Interpolate by current Z so units never jump
-        // sideways when crossing the merge threshold.
-        float routeX = lane.LaneCenterX(assignedLane, local.z);
-        // Road tiles are generated from this same centerline, so matching X to
-        // the route prevents fast units from cutting through district gaps.
+        // Classic lanes stay physically separate for their full length.
+        float routeX = lane.RoadCenterX(assignedLane);
         local.x = routeX;
         local.y = 0f;
         transform.position = lane.transform.TransformPoint(local);

@@ -265,7 +265,9 @@ Shader "Hero Line Wars/Fortress Surface"
                     float2 p = input.positionWS.xz / max(_LaneSize.z,.001);
                     float roadWidth = _LaneSize.x;
                     float stride = max(_LaneSize.w,roadWidth+2);
-                    float mapWidth = stride*2+roadWidth;
+                    // The classic layout has two roads separated by one city
+                    // district: road + gap + road.
+                    float mapWidth = stride+roadWidth;
 
                     // Large staggered city slabs remain readable at gameplay
                     // zoom. Their color comes from stable world-space hashes.
@@ -282,7 +284,7 @@ Shader "Hero Line Wars/Fortress Surface"
                     albedo *= lerp(half3(.94,1,1.04),half3(1.03,.98,.91),warmth*.22);
                     albedo = lerp(albedo,albedo*.48,joint*.72);
 
-                    // Identify the two inter-road city districts. Road
+                    // Identify the single inter-road city district. Road
                     // and connector meshes remain the only playable surfaces.
                     float localX = p.x-floor(p.x/stride)*stride;
                     half inMap = step(0,p.x)*step(p.x,mapWidth)*step(_CityLayout.x,p.y)*step(p.y,_LaneSize.y);
@@ -303,8 +305,9 @@ Shader "Hero Line Wars/Fortress Surface"
                         district * saturate(joint*1.5+fracture*.7);
                     albedo = lerp(albedo,half3(.12,.19,.16),moss*.38);
 
-                    // Exactly two primary circles are inlaid directly into the
-                    // existing ground. No decal quads, extra floors or lights.
+                    // The primary circle is inlaid directly into the existing
+                    // ground. The legacy B input remains inert and outside the
+                    // footprint for serialized-material compatibility.
                     half2 runeA = DistrictRuneMarks(p-_DistrictRuneA.xy,
                         _DistrictRuneA.z,_DistrictRuneA.w);
                     half2 runeB = DistrictRuneMarks(p-_DistrictRuneB.xy,

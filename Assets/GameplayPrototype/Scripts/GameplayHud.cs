@@ -7,7 +7,7 @@ using UnityEngine.UI;
 [DefaultExecutionOrder(-50)]
 public sealed class GameplayHud : MonoBehaviour
 {
-    const int HudLayoutVersion = 11;
+    const int HudLayoutVersion = 12;
     [Min(120f)] public float abilityButtonSize = 176f;
     [Min(8f)] public float safeAreaPadding = 18f;
     [Min(200f)] public float minimapWidth = 320f;
@@ -82,6 +82,11 @@ public sealed class GameplayHud : MonoBehaviour
     Text wizardLabel;
     Text speedLabel;
     Text matchTimeLabel;
+    Text heroLevelLabel;
+    Text heroExperienceLabel;
+    Image heroExperienceFill;
+    readonly Image[] futureAbilitySlots = new Image[3];
+    readonly Text[] futureAbilityLabels = new Text[3];
     GameObject unitsPanel;
     GameObject itemsPanel;
     GameObject resultPanel;
@@ -90,6 +95,8 @@ public sealed class GameplayHud : MonoBehaviour
     float activeMinimapHeight;
     bool topHudTwoRows;
     FireballAbility ability;
+    HeroProgression heroProgression;
+    HeroAbilityLoadout abilityLoadout;
     FriendlyUnitSender sender;
     float nextReferenceSearch;
     int lastGold = -1;
@@ -198,16 +205,20 @@ public sealed class GameplayHud : MonoBehaviour
     void Update()
     {
         EnsureHudInitialized();
-        if ((!ability || !sender || !matchLoop) && Time.unscaledTime >= nextReferenceSearch)
+        if ((!ability || !sender || !matchLoop || !heroProgression) && Time.unscaledTime >= nextReferenceSearch)
         {
-            if (!ability) ability = FindAnyObjectByType<FireballAbility>();
+            if (!ability) ability = HeroProgression.PlayerHero
+                ? HeroProgression.PlayerHero.GetComponent<FireballAbility>() : FindAnyObjectByType<FireballAbility>();
             if (!sender) sender = FindAnyObjectByType<FriendlyUnitSender>();
             if (!matchLoop) matchLoop = GetComponent<MatchLoopController>() ?? FindAnyObjectByType<MatchLoopController>();
+            if (!heroProgression) heroProgression = HeroProgression.PlayerHero;
+            if (heroProgression && !abilityLoadout) abilityLoadout = heroProgression.GetComponent<HeroAbilityLoadout>();
             nextReferenceSearch = Time.unscaledTime + .25f;
         }
 
         bool running = matchLoop && matchLoop.IsRunning;
         UpdateFireball(running);
+        UpdateHeroProgression();
         UpdateSpeedVisual();
         if (sender)
         {
@@ -324,6 +335,7 @@ public sealed class GameplayHud : MonoBehaviour
         BuildUnitMenu();
         BuildItemsPanel();
         BuildAbilityControls();
+        BuildHeroProgressionPanel();
         BuildResultPanel();
         builtHudLayoutVersion = HudLayoutVersion;
     }
@@ -543,11 +555,12 @@ public sealed class GameplayHud : MonoBehaviour
         fireballView.SetLabel("FIREBALL");
         fireballButton.onClick.AddListener(ToggleFireballTargeting);
 
-        if (showFutureAbilityPlaceholders)
-        {
-            CreatePlaceholderAbility("AbilitySlot2", new Vector2(-safeAreaPadding - size - 12f, safeAreaPadding + 6f));
-            CreatePlaceholderAbility("AbilitySlot3", new Vector2(-safeAreaPadding - size - 84f, safeAreaPadding + 6f));
-        }
+        CreatePlaceholderAbility("AbilitySlot2", new Vector2(-safeAreaPadding - size - 12f, safeAreaPadding + 6f),
+            2, out futureAbilitySlots[0], out futureAbilityLabels[0]);
+        CreatePlaceholderAbility("AbilitySlot3", new Vector2(-safeAreaPadding - size - 80f, safeAreaPadding + 6f),
+            4, out futureAbilitySlots[1], out futureAbilityLabels[1]);
+        CreatePlaceholderAbility("AbilitySlot4", new Vector2(-safeAreaPadding - size - 148f, safeAreaPadding + 6f),
+            6, out futureAbilitySlots[2], out futureAbilityLabels[2]);
     }
 
     void ResizeAbilityButton()
@@ -565,9 +578,10 @@ public sealed class GameplayHud : MonoBehaviour
         rect.sizeDelta = new Vector2(size, size);
     }
 
-    void CreatePlaceholderAbility(string name, Vector2 position)
+    void CreatePlaceholderAbility(string name, Vector2 position, int requiredLevel,
+        out Image slotImage, out Text slotLabel)
     {
-        GameObject slot = new GameObject(name, typeof(RectTransform), typeof(Image), typeof(Outline));
+        GameObject slot = new GameObject(name, typeof(RectTransform), typeof(Image), typeof(Outline), typeof(Button));
         slot.transform.SetParent(safeRoot, false);
         RectTransform rect = slot.GetComponent<RectTransform>();
         rect.anchorMin = rect.anchorMax = new Vector2(1f, 0f);
@@ -575,6 +589,7 @@ public sealed class GameplayHud : MonoBehaviour
         rect.anchoredPosition = position;
         rect.sizeDelta = new Vector2(62f, 62f);
         Image image = slot.GetComponent<Image>();
+        slotImage = image;
         image.sprite = circleSprite;
         image.color = circleSprite ? Color.white : new Color(.06f, .15f, .23f, .9f);
         image.raycastTarget = true;
@@ -584,8 +599,64 @@ public sealed class GameplayHud : MonoBehaviour
         Image rim = CreateImage("OrnateFrame", slot.transform, ornateButtonFrameSprite,
             Vector2.zero, new Vector2(68f, 54f), Color.white, false);
         rim.preserveAspect = true;
-        CreateText("EmptySlotLabel", slot.transform, "-", Vector2.zero, new Vector2(62f, 62f),
-            22, TextAnchor.MiddleCenter, new Color(.65f, .8f, .88f, .75f), false);
+        slot.GetComponent<Button>().interactable = false;
+        slotLabel = CreateText("EmptySlotLabel", slot.transform, $"Lv {requiredLevel}", Vector2.zero,
+            new Vector2(62f, 62f), 13, TextAnchor.MiddleCenter,
+            new Color(.65f, .8f, .88f, .75f), false);
+    }
+
+    void BuildHeroProgressionPanel()
+    {
+        GameObject panel = new GameObject("HeroProgressionPanel", typeof(RectTransform), typeof(Image), typeof(Outline));
+        panel.transform.SetParent(safeRoot, false);
+        RectTransform rect = panel.GetComponent<RectTransform>();
+        rect.anchorMin = rect.anchorMax = new Vector2(1f, 0f);
+        rect.pivot = new Vector2(1f, 0f);
+        rect.anchoredPosition = new Vector2(-safeAreaPadding, safeAreaPadding + abilityButtonSize + 10f);
+        rect.sizeDelta = new Vector2(236f, 54f);
+        Image background = panel.GetComponent<Image>();
+        background.sprite = capsuleSprite;
+        background.type = capsuleSprite ? Image.Type.Sliced : Image.Type.Simple;
+        background.color = ControlNavy;
+        background.raycastTarget = false;
+        Outline outline = panel.GetComponent<Outline>();
+        outline.effectColor = new Color(.36f, .72f, 1f, .72f);
+        outline.effectDistance = new Vector2(1f, 1f);
+        heroLevelLabel = CreateText("HeroLevel", panel.transform, "LV 1", new Vector2(-78f, 8f),
+            new Vector2(70f, 22f), 15, TextAnchor.MiddleCenter, Gold, false);
+        heroExperienceLabel = CreateText("HeroExperience", panel.transform, "0 / 70 XP", new Vector2(28f, 8f),
+            new Vector2(130f, 22f), 12, TextAnchor.MiddleCenter, Color.white, false);
+        heroExperienceFill = CreateImage("HeroXpFill", panel.transform, null, new Vector2(22f, -13f),
+            new Vector2(176f, 7f), new Color(.3f, .72f, 1f, 1f), false);
+        heroExperienceFill.type = Image.Type.Filled;
+        heroExperienceFill.fillMethod = Image.FillMethod.Horizontal;
+        heroExperienceFill.fillOrigin = (int)Image.OriginHorizontal.Left;
+        Image frame = CreateImage("HeroXpFrame", panel.transform, healthBarFrameSprite, new Vector2(22f, -13f),
+            new Vector2(184f, 15f), new Color(.75f, .86f, 1f, 1f), false);
+        frame.type = healthBarFrameSprite ? Image.Type.Sliced : Image.Type.Simple;
+        frame.preserveAspect = false;
+    }
+
+    void UpdateHeroProgression()
+    {
+        if (!heroProgression) return;
+        int level = heroProgression.Level;
+        int needed = Mathf.Max(1, heroProgression.ExperienceToNextLevel);
+        if (heroLevelLabel) heroLevelLabel.text = $"LV {level}";
+        if (heroExperienceLabel) heroExperienceLabel.text = $"{heroProgression.Experience} / {needed} XP";
+        if (heroExperienceFill) heroExperienceFill.fillAmount = Mathf.Clamp01(heroProgression.Experience / (float)needed);
+        int[] requirements = { 2, 4, 6 };
+        for (int i = 0; i < futureAbilitySlots.Length; i++)
+        {
+            bool unlocked = abilityLoadout ? abilityLoadout.IsUnlocked(i + 2) : level >= requirements[i];
+            if (futureAbilitySlots[i]) futureAbilitySlots[i].color = unlocked
+                ? new Color(.25f, .62f, .78f, .92f) : new Color(.18f, .24f, .32f, .78f);
+            if (futureAbilityLabels[i])
+            {
+                futureAbilityLabels[i].text = unlocked ? "OPEN" : $"Lv {requirements[i]}";
+                futureAbilityLabels[i].color = unlocked ? new Color(.75f, .95f, 1f) : new Color(.55f, .64f, .72f);
+            }
+        }
     }
 
     void BuildResultPanel()
@@ -699,7 +770,8 @@ public sealed class GameplayHud : MonoBehaviour
 
     void ToggleFireballTargeting()
     {
-        if (!ability) ability = FindAnyObjectByType<FireballAbility>();
+        if (!ability) ability = HeroProgression.PlayerHero
+            ? HeroProgression.PlayerHero.GetComponent<FireballAbility>() : FindAnyObjectByType<FireballAbility>();
         if (!ability) return;
         if (ability.IsTargeting) ability.CancelTargeting();
         else if (ability.BeginTargeting())

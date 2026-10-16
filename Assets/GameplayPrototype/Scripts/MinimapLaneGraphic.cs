@@ -176,36 +176,17 @@ public sealed class MinimapLaneGraphic : MonoBehaviour
 
     List<Vector2[]> BuildRoadPolygons()
     {
-        List<Vector2[]> polygons = new List<Vector2[]>(lane.battleLaneCount + 2);
+        List<Vector2[]> polygons = new List<Vector2[]>(lane.battleLaneCount);
         float halfWidth = lane.RoadWidth * .5f;
-        float sharedCenter = lane.RoadCenterX(lane.battleLaneCount / 2);
         for (int laneIndex = 0; laneIndex < lane.battleLaneCount; laneIndex++)
         {
-            float branchCenter = lane.RoadCenterX(laneIndex);
+            float center = lane.RoadCenterX(laneIndex);
             polygons.Add(new[]
             {
-                new Vector2(sharedCenter - halfWidth, 0f),
-                new Vector2(sharedCenter - halfWidth, lane.BranchStartWorld),
-                new Vector2(branchCenter - halfWidth, lane.BranchEndWorld),
-                new Vector2(branchCenter - halfWidth, lane.LengthWorld),
-                new Vector2(branchCenter + halfWidth, lane.LengthWorld),
-                new Vector2(branchCenter + halfWidth, lane.BranchEndWorld),
-                new Vector2(sharedCenter + halfWidth, lane.BranchStartWorld),
-                new Vector2(sharedCenter + halfWidth, 0f)
-            });
-        }
-
-        for (int row = 0; row < lane.laneLength; row++)
-        {
-            if (!lane.IsConnectorRow(row) || row * lane.cellSize <= lane.BranchEndWorld) continue;
-            float z0 = row * lane.cellSize;
-            float z1 = Mathf.Min(lane.LengthWorld, z0 + lane.cellSize);
-            float x0 = lane.RoadStartX(0);
-            float x1 = lane.RoadStartX(lane.battleLaneCount - 1) + lane.RoadWidth;
-            polygons.Add(new[]
-            {
-                new Vector2(x0, z0), new Vector2(x0, z1),
-                new Vector2(x1, z1), new Vector2(x1, z0)
+                new Vector2(center - halfWidth, 0f),
+                new Vector2(center - halfWidth, lane.LengthWorld),
+                new Vector2(center + halfWidth, lane.LengthWorld),
+                new Vector2(center + halfWidth, 0f)
             });
         }
         return polygons;

@@ -9,8 +9,11 @@ public sealed class GoblinHealth : MonoBehaviour
     static bool flashResourcesInitialized;
 
     [Min(1)] public int maximumHitPoints = 100;
+    public bool showHealthBarAlways;
     public int CurrentHitPoints { get; private set; }
+    public int MaximumHitPoints => maximumHitPoints;
     public bool IsDead { get; private set; }
+    public float LastDamageTime { get; private set; } = float.NegativeInfinity;
 
     Renderer[] modelRenderers;
     UnitHealthBar healthBar;
@@ -18,6 +21,7 @@ public sealed class GoblinHealth : MonoBehaviour
     float flashEndTime;
     float deathEndTime;
     bool enemyKillRewardGranted;
+    float fractionalHealing;
 
     static void EnsureFlashResources()
     {
@@ -46,6 +50,11 @@ public sealed class GoblinHealth : MonoBehaviour
         modelRenderers = GetComponentsInChildren<Renderer>(true);
     }
 
+    void Start()
+    {
+        if (showHealthBarAlways) ShowHealthBar();
+    }
+
     void Update()
     {
         if (flashing && Time.time >= flashEndTime) ClearHitFlash();
@@ -56,17 +65,43 @@ public sealed class GoblinHealth : MonoBehaviour
     {
         maximumHitPoints = Mathf.Max(1, value);
         CurrentHitPoints = maximumHitPoints;
+        IsDead = false;
+        enemyKillRewardGranted = false;
+        fractionalHealing = 0f;
+        if (showHealthBarAlways) ShowHealthBar();
+    }
+
+    public void SetMaximumHitPoints(int value, bool preserveRatio)
+    {
+        int previousMaximum = Mathf.Max(1, maximumHitPoints);
+        float ratio = preserveRatio ? CurrentHitPoints / (float)previousMaximum : 1f;
+        maximumHitPoints = Mathf.Max(1, value);
+        CurrentHitPoints = Mathf.Clamp(Mathf.RoundToInt(maximumHitPoints * ratio), 1, maximumHitPoints);
+        if (showHealthBarAlways || healthBar) ShowHealthBar();
+    }
+
+    public void Heal(float amount)
+    {
+        if (IsDead || amount <= 0f || CurrentHitPoints >= maximumHitPoints) return;
+        fractionalHealing += amount;
+        int wholeHealing = Mathf.FloorToInt(fractionalHealing);
+        if (wholeHealing <= 0) return;
+        fractionalHealing -= wholeHealing;
+        CurrentHitPoints = Mathf.Min(maximumHitPoints, CurrentHitPoints + wholeHealing);
+        ShowHealthBar();
     }
 
     public void TakeDamage(int amount, UnitTeam attackerTeam)
     {
         if (IsDead || amount <= 0) return;
+        LastDamageTime = Time.time;
+        HeroProgression hero = GetComponent<HeroProgression>();
+        if (hero) hero.RecordDamageReceived();
         CurrentHitPoints = Mathf.Max(0, CurrentHitPoints - amount);
         ApplyHitFlash();
         if (CurrentHitPoints > 0)
         {
-            if (!healthBar) healthBar = GetComponent<UnitHealthBar>() ?? gameObject.AddComponent<UnitHealthBar>();
-            healthBar.Show(this, CurrentHitPoints, maximumHitPoints);
+            ShowHealthBar();
             return;
         }
         IsDead = true;
@@ -83,14 +118,25 @@ public sealed class GoblinHealth : MonoBehaviour
             {
                 MatchLoopController match = MatchLoopController.Current;
                 if (match) match.RewardEnemyKill(faction.team, attackerTeam, faction.archetype);
+                if (faction.team == UnitTeam.Enemy && attackerTeam == UnitTeam.Friendly)
+                    HeroProgression.AwardNearbyExperience(transform.position, faction.archetype);
             }
         }
+        HeroProgression defeatedHero = GetComponent<HeroProgression>();
+        if (defeatedHero && MatchLoopController.Current)
+            MatchLoopController.Current.ReportHeroDefeated(defeatedHero.IsPlayerHero);
         LaneUnitCombat combat = GetComponent<LaneUnitCombat>();
         if (combat) combat.enabled = false;
         Color deathColor = faction && faction.team == UnitTeam.Friendly
             ? new Color(.18f, .62f, 1f) : new Color(1f, .2f, .18f);
         GameplayVisuals.Impact(transform.position + Vector3.up * .35f, .72f, deathColor, .28f);
         deathEndTime = Time.time + .28f;
+    }
+
+    void ShowHealthBar()
+    {
+        if (!healthBar) healthBar = GetComponent<UnitHealthBar>() ?? gameObject.AddComponent<UnitHealthBar>();
+        healthBar.Show(this, CurrentHitPoints, maximumHitPoints, showHealthBarAlways);
     }
 
     void ApplyHitFlash()

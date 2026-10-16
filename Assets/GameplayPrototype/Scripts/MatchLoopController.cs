@@ -142,6 +142,12 @@ public sealed class MatchLoopController : MonoBehaviour
         }
     }
 
+    public void ReportHeroDefeated(bool playerHero)
+    {
+        if (!IsRunning) return;
+        EndMatch(playerHero ? MatchResult.Defeat : MatchResult.Victory);
+    }
+
     public void RestartMatch()
     {
         if (IsRunning || restarting) return;

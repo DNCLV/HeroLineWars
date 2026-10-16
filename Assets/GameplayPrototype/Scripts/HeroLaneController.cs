@@ -13,6 +13,7 @@ public sealed class HeroLaneController : MonoBehaviour
     [Min(.1f)] public float modelScale = 1.12f;
     [Min(.1f)] public float selectionRingSize = 1.15f;
     public float modelYawOffset;
+    [Range(0, 1)] public int allowedLaneIndex;
 
     Vector3 destination;
     Transform modelRoot;
@@ -118,7 +119,7 @@ public sealed class HeroLaneController : MonoBehaviour
         if (!lane || (fireball && fireball.IsTargeting)) return;
         if (!GameplayInputRouter.TryGetLanePoint(screenPosition, lane, out Vector3 point)) return;
         Vector3 local = lane.transform.InverseTransformPoint(point);
-        if (!lane.IsWalkable(local.x, local.z)) return;
+        if (!lane.IsPointInRoad(allowedLaneIndex, local.x, local.z, boundaryInset)) return;
         if (!BuildRoute(lane.transform.InverseTransformPoint(transform.position), local)) return;
         local.y = .015f;
         destination = lane.transform.TransformPoint(local);

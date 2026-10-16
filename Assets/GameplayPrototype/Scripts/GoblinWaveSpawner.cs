@@ -61,6 +61,8 @@ public sealed class GoblinWaveSpawner : MonoBehaviour
     public CombatProfile ghoulStats = new CombatProfile(130, 13, 1.2f, 0f, 2f);
     public CombatProfile skeletonKingStats = new CombatProfile(330, 24, 1.5f, 0f, 1.65f);
     public CombatProfile undeadDragonStats = new CombatProfile(450, 20, 2f, 0f, 1.8f);
+    public CombatProfile playerHeroStats = new CombatProfile(520, 18, 1.1f, 6f, 3.5f);
+    public CombatProfile enemyHeroStats = new CombatProfile(620, 16, 1.15f, 5.5f, 0.1f);
 
     [Header("Enemy Director v2 - total spawns per simulated minute")]
     [Min(0)] public int minuteOneSpawnCount = 12;
@@ -105,6 +107,8 @@ public sealed class GoblinWaveSpawner : MonoBehaviour
     public int SkeletonKingsSpawned => skeletonKingsSpawned;
     public int UndeadDragonsSpawned => undeadDragonsSpawned;
     public float ActualSpawnInterval => actualSpawnInterval;
+    public int PlayerDefenseLaneIndex => lane ? lane.PlayerDefenseLaneIndex : 0;
+    public int AlliedDefenseLaneIndex => lane ? lane.EnemyDefenseLaneIndex : 1;
 
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
     static void ResetStaticState() { activeDirector = null; }
@@ -147,7 +151,8 @@ public sealed class GoblinWaveSpawner : MonoBehaviour
         for (int i = transform.childCount - 1; i >= 0; i--)
         {
             Transform child = transform.GetChild(i);
-            if (child.GetComponent<UnitFaction>() || child.GetComponent<HeroLaneController>())
+            if (child.GetComponent<UnitFaction>() || child.GetComponent<HeroLaneController>() ||
+                child.GetComponent<HealingWell>())
                 Destroy(child.gameObject);
         }
     }
@@ -162,13 +167,16 @@ public sealed class GoblinWaveSpawner : MonoBehaviour
         undeadDragonsSpawned = 0;
         actualSpawnInterval = 0f;
         nextDiagnosticTime = 0f;
-        SpawnHero();
+        SpawnPlayerHero();
+        SpawnHealingWell();
+        SpawnEnemyHero();
         StartCoroutine(RunContinuousDirector());
     }
 
-    void SpawnHero()
+    void SpawnPlayerHero()
     {
-        Vector3 position = EndpointPosition(false, lane.RoadCenterX(lane.battleLaneCount / 2), heroSpawnInset);
+        int defenseLane = PlayerDefenseLaneIndex;
+        Vector3 position = EndpointPosition(false, lane.RoadCenterX(defenseLane), heroSpawnInset);
         GameObject hero = Instantiate(heroPrefab, position, lane.transform.rotation, transform);
         hero.name = "Battlemage";
         UnitFaction faction = hero.GetComponent<UnitFaction>();
@@ -181,10 +189,74 @@ public sealed class GoblinWaveSpawner : MonoBehaviour
         controller.movementSpeed = heroMovementSpeed;
         controller.modelScale = heroModelScale;
         controller.selectionRingSize = selectionRingSize;
+        controller.allowedLaneIndex = defenseLane;
         FireballAbility ability = hero.GetComponent<FireballAbility>();
         if (!ability) ability = hero.AddComponent<FireballAbility>();
         ability.lane = lane;
         if (!hero.GetComponent<HeroAutoAttack>()) hero.AddComponent<HeroAutoAttack>();
+        GoblinHealth health = hero.GetComponent<GoblinHealth>();
+        if (!health) health = hero.AddComponent<GoblinHealth>();
+        LaneUnitCombat combat = hero.GetComponent<LaneUnitCombat>();
+        if (!combat) combat = hero.AddComponent<LaneUnitCombat>();
+        ApplyCombatProfile(combat, UnitArchetype.Battlemage, 0f, false);
+        combat.stationaryDefender = true;
+        combat.performAttacks = false;
+        combat.Configure(lane, UnitTeam.Friendly, UnitArchetype.Battlemage);
+        combat.ConfigureLane(defenseLane);
+        HeroAbilityLoadout loadout = hero.GetComponent<HeroAbilityLoadout>();
+        if (!loadout) loadout = hero.AddComponent<HeroAbilityLoadout>();
+        HeroProgression progression = hero.GetComponent<HeroProgression>();
+        if (!progression) progression = hero.AddComponent<HeroProgression>();
+        progression.Configure(true);
+    }
+
+    void SpawnHealingWell()
+    {
+        Vector3 position = EndpointPosition(false, lane.RoadCenterX(PlayerDefenseLaneIndex), 1.35f);
+        GameObject wellObject = new GameObject("PlayerHealingWell");
+        wellObject.transform.SetParent(transform, false);
+        wellObject.transform.position = position;
+        wellObject.transform.rotation = lane.transform.rotation;
+        HealingWell well = wellObject.AddComponent<HealingWell>();
+        well.Configure(HeroProgression.PlayerHero, 4f, .06f, 5f);
+    }
+
+    void SpawnEnemyHero()
+    {
+        int defenseLane = AlliedDefenseLaneIndex;
+        Vector3 position = EndpointPosition(true, lane.RoadCenterX(defenseLane), heroSpawnInset);
+        GameObject hero = Instantiate(heroPrefab, position, lane.transform.rotation * Quaternion.Euler(0f, 180f, 0f), transform);
+        hero.name = "EnemyBattlemage";
+        HeroLaneController movement = hero.GetComponent<HeroLaneController>();
+        if (movement) movement.enabled = false;
+        HeroAutoAttack oldAutoAttack = hero.GetComponent<HeroAutoAttack>();
+        if (oldAutoAttack) oldAutoAttack.enabled = false;
+        FireballAbility oldAbility = hero.GetComponent<FireballAbility>();
+        if (oldAbility) oldAbility.enabled = false;
+        UnitFaction faction = hero.GetComponent<UnitFaction>();
+        if (!faction) faction = hero.AddComponent<UnitFaction>();
+        faction.showFactionRing = true;
+        faction.Set(UnitTeam.Enemy, UnitArchetype.Battlemage);
+        GoblinHealth health = hero.GetComponent<GoblinHealth>();
+        if (!health) health = hero.AddComponent<GoblinHealth>();
+        LaneUnitCombat combat = hero.GetComponent<LaneUnitCombat>();
+        if (!combat) combat = hero.AddComponent<LaneUnitCombat>();
+        combat.maximumHitPoints = enemyHeroStats.hitPoints;
+        combat.attackDamage = enemyHeroStats.damage;
+        combat.attackInterval = enemyHeroStats.attackInterval;
+        combat.attackRange = enemyHeroStats.attackRange;
+        combat.engagementRange = Mathf.Max(enemyHeroStats.attackRange + 2f, 7f);
+        combat.movementSpeed = .1f;
+        combat.stationaryDefender = true;
+        combat.performAttacks = true;
+        combat.Configure(lane, UnitTeam.Enemy, UnitArchetype.Battlemage);
+        combat.ConfigureLane(defenseLane);
+        health.showHealthBarAlways = true;
+        HeroProgression progression = hero.GetComponent<HeroProgression>();
+        if (!progression) progression = hero.AddComponent<HeroProgression>();
+        progression.baseMaximumHealth = 340;
+        progression.enableExperience = false;
+        progression.Configure(false);
     }
 
     IEnumerator RunContinuousDirector()
@@ -213,9 +285,8 @@ public sealed class GoblinWaveSpawner : MonoBehaviour
     void SpawnScheduledEnemy(EnemyPrefab[] available, float elapsed)
     {
         EnemyPrefab selection = SelectEnemy(available, elapsed, spawnSequence);
-        int laneCount = Mathf.Max(1, lane.battleLaneCount);
-        int assignedLane = spawnSequence % laneCount;
-        float zInset = enemySpawnInset + ((spawnSequence / laneCount) % 2) * alternatingRowOffset;
+        int assignedLane = PlayerDefenseLaneIndex;
+        float zInset = enemySpawnInset + (spawnSequence % 2) * alternatingRowOffset;
         float laneX = lane.RoadCenterX(assignedLane);
         SpawnUnit(selection.prefab, selection.archetype, UnitTeam.Enemy,
             EndpointPosition(true, laneX, zInset), $"Enemy_{selection.archetype}_{spawnSequence + 1}", assignedLane);
@@ -273,7 +344,9 @@ public sealed class GoblinWaveSpawner : MonoBehaviour
         UnitFaction faction = unit.GetComponent<UnitFaction>();
         if (!faction) faction = unit.AddComponent<UnitFaction>();
         faction.Set(team, archetype);
-        if (!unit.GetComponent<GoblinHealth>()) unit.AddComponent<GoblinHealth>();
+        GoblinHealth health = unit.GetComponent<GoblinHealth>();
+        if (!health) health = unit.AddComponent<GoblinHealth>();
+        health.showHealthBarAlways = true;
         LaneUnitCombat combat = unit.GetComponent<LaneUnitCombat>();
         if (!combat) combat = unit.AddComponent<LaneUnitCombat>();
         ApplyCombatProfile(combat, archetype,
@@ -286,8 +359,8 @@ public sealed class GoblinWaveSpawner : MonoBehaviour
     public GameObject SpawnFriendly(GameObject prefab, UnitArchetype archetype, int assignedLane, int purchaseNumber)
     {
         if (!lane || !prefab || (matchLoop && !matchLoop.IsRunning)) return null;
-        assignedLane = Mathf.Clamp(assignedLane, 0, lane.battleLaneCount - 1);
-        Vector3 position = EndpointPosition(false, lane.RoadCenterX(lane.battleLaneCount / 2), heroSpawnInset + .8f);
+        assignedLane = AlliedDefenseLaneIndex;
+        Vector3 position = EndpointPosition(false, lane.RoadCenterX(assignedLane), heroSpawnInset + .8f);
         return SpawnUnit(prefab, archetype, UnitTeam.Friendly, position,
             $"Friendly_{archetype}_{purchaseNumber}_Lane{assignedLane + 1}", assignedLane);
     }
@@ -355,6 +428,7 @@ public sealed class GoblinWaveSpawner : MonoBehaviour
 
     CombatProfile Profile(UnitArchetype archetype)
     {
+        if (archetype == UnitArchetype.Battlemage) return playerHeroStats;
         if (archetype == UnitArchetype.GreenArcher) return archerStats;
         if (archetype == UnitArchetype.HolyKnight) return knightStats;
         if (archetype == UnitArchetype.BlueWizard) return wizardStats;
@@ -373,6 +447,8 @@ public sealed class GoblinWaveSpawner : MonoBehaviour
         if (ghoulStats.hitPoints <= 0) ghoulStats = new CombatProfile(130, 13, 1.2f, 0f, 2f);
         if (skeletonKingStats.hitPoints <= 0) skeletonKingStats = new CombatProfile(330, 24, 1.5f, 0f, 1.65f);
         if (undeadDragonStats.hitPoints <= 0) undeadDragonStats = new CombatProfile(450, 20, 2f, 0f, 1.8f);
+        if (playerHeroStats.hitPoints <= 0) playerHeroStats = new CombatProfile(520, 18, 1.1f, 6f, 3.5f);
+        if (enemyHeroStats.hitPoints <= 0) enemyHeroStats = new CombatProfile(620, 16, 1.15f, 5.5f, .1f);
         if (minuteOneSpawnCount <= 0) minuteOneSpawnCount = 12;
         if (minuteTwoSpawnCount <= 0) minuteTwoSpawnCount = 18;
         if (minuteThreeSpawnCount <= 0) minuteThreeSpawnCount = 24;

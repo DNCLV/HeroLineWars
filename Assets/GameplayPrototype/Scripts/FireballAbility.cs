@@ -17,6 +17,7 @@ public sealed class FireballAbility : MonoBehaviour
     float nextReadyTime;
     bool isTargeting;
     bool rangeValid;
+    HeroProgression progression;
 
     public bool IsTargeting => isTargeting;
     public float CooldownRemaining => Mathf.Max(0f, nextReadyTime - Time.time);
@@ -25,6 +26,7 @@ public sealed class FireballAbility : MonoBehaviour
     void Awake()
     {
         movement = GetComponent<HeroLaneController>();
+        progression = GetComponent<HeroProgression>();
         if (!lane && movement) lane = movement.lane;
         if (!lane) lane = FindAnyObjectByType<LaneGenerator>();
         CreatePreview();
@@ -36,6 +38,11 @@ public sealed class FireballAbility : MonoBehaviour
     void Update()
     {
         if (!isTargeting) return;
+        if (HealingWell.Current && HealingWell.Current.Contains(transform))
+        {
+            CancelTargeting();
+            return;
+        }
         rangeValid = false;
         if (lane && GameplayInputRouter.TryGetPointerLanePoint(lane, out Vector3 point))
         {
@@ -58,7 +65,7 @@ public sealed class FireballAbility : MonoBehaviour
 
     public bool BeginTargeting()
     {
-        if (!IsReady || !lane) return false;
+        if (!IsReady || !lane || (HealingWell.Current && HealingWell.Current.Contains(transform))) return false;
         isTargeting = true;
         return true;
     }
@@ -73,6 +80,11 @@ public sealed class FireballAbility : MonoBehaviour
     {
         if (!isTargeting) return;
         GameplayInputRouter.ConsumeCurrentTap();
+        if (HealingWell.Current && HealingWell.Current.Contains(transform))
+        {
+            CancelTargeting();
+            return;
+        }
         if (!lane || !GameplayInputRouter.TryGetLanePoint(screenPosition, lane, out Vector3 point)) return;
         Vector3 hero = lane.transform.InverseTransformPoint(transform.position);
         Vector3 target = lane.transform.InverseTransformPoint(point);
@@ -83,6 +95,8 @@ public sealed class FireballAbility : MonoBehaviour
         isTargeting = false;
         if (previewRing) previewRing.gameObject.SetActive(false);
         nextReadyTime = Time.time + cooldown;
+        if (!progression) progression = GetComponent<HeroProgression>();
+        if (progression) progression.RecordCombatAction();
         Vector3 launch = transform.position + Vector3.up * .85f;
         Vector3 destination = point + lane.transform.up * .2f;
         UnitFaction faction = GetComponent<UnitFaction>();

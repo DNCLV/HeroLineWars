@@ -57,26 +57,13 @@ public sealed class UnitCombatRegistry : MonoBehaviour
             if (!candidate.isActiveAndEnabled || candidate.IsDead || !candidate.Faction ||
                 candidate.Faction.team == team || candidate.lane != lane) continue;
             Vector3 localTarget = lane.transform.InverseTransformPoint(candidate.transform.position);
-            if (localOrigin.z > lane.BranchEndWorld && localTarget.z > lane.BranchEndWorld &&
-                candidate.assignedLane != laneIndexForPosition(lane, localOrigin.x)) continue;
+            if (candidate.assignedLane != lane.LaneIndexForX(localOrigin.x)) continue;
             float dx = localTarget.x - localOrigin.x;
             float dz = localTarget.z - localOrigin.z;
             float distance = dx * dx + dz * dz;
             if (distance <= best) { best = distance; nearest = candidate; }
         }
         return nearest;
-    }
-
-    static int laneIndexForPosition(LaneGenerator lane, float x)
-    {
-        int best = 0;
-        float distance = float.PositiveInfinity;
-        for (int i = 0; i < lane.battleLaneCount; i++)
-        {
-            float delta = Mathf.Abs(x - lane.RoadCenterX(i));
-            if (delta < distance) { distance = delta; best = i; }
-        }
-        return best;
     }
 
     public static void DamageOpponentsInRadius(Vector3 center, float radius, int damage,
@@ -92,6 +79,7 @@ public sealed class UnitCombatRegistry : MonoBehaviour
             if (!candidate.isActiveAndEnabled || candidate.IsDead || !candidate.Faction ||
                 !candidate.Health || candidate.Faction.team == attacker || candidate.lane != lane) continue;
             Vector3 local = lane.transform.InverseTransformPoint(candidate.transform.position);
+            if (candidate.assignedLane != lane.LaneIndexForX(localCenter.x)) continue;
             float dx = local.x - localCenter.x;
             float dz = local.z - localCenter.z;
             if (dx * dx + dz * dz <= radiusSqr) candidate.Health.TakeDamage(damage, attacker);
@@ -119,6 +107,7 @@ public sealed class UnitCombatRegistry : MonoBehaviour
             if (!candidate.isActiveAndEnabled || candidate.IsDead || !candidate.Faction ||
                 !candidate.Health || candidate.Faction.team == attacker || candidate.lane != lane) continue;
             Vector3 local = lane.transform.InverseTransformPoint(candidate.transform.position);
+            if (candidate.assignedLane != lane.LaneIndexForX(localCenter.x)) continue;
             float dx = local.x - localCenter.x;
             float dz = local.z - localCenter.z;
             float distance = dx * dx + dz * dz;

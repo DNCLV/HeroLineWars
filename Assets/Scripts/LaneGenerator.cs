@@ -9,16 +9,16 @@ using UnityEditor;
 [ExecuteAlways]
 public partial class LaneGenerator : MonoBehaviour
 {
-    public const string GenerationVersion = "TwinArcaneRunesV8";
+    public const string GenerationVersion = "ClassicTwoLaneV1";
     [Header("Lane")]
-    [Min(32)] public int laneLength = 112;
-    [Min(4)] public int laneWidth = 8;
+    [Min(64)] public int laneLength = 128;
+    [Min(6)] public int laneWidth = 10;
     [Min(0.25f)] public float cellSize = 1f;
-    [Header("Three-lane route")]
-    [Range(2, 3)] public int battleLaneCount = 3;
+    [Header("Classic two-lane battlefield")]
+    [HideInInspector] public int battleLaneCount = 2;
     [Range(.12f, .35f)] public float mergeStartNormalized = .18f;
     [Tooltip("Clear world-space distance between adjacent physical roads.")]
-    [Min(2f)] public float laneGap = 12f;
+    [Min(8f)] public float laneGap = 18f;
     [Min(0.05f)] public float floorThickness = 0.15f;
     [Header("Walls and pillars")]
     [Min(0.1f)] public float wallHeight = 0.8f;
@@ -59,22 +59,42 @@ public partial class LaneGenerator : MonoBehaviour
     public float LengthWorld => laneLength * cellSize;
     public float RoadWidth => laneWidth * cellSize;
     public float WidthWorld => (battleLaneCount * laneWidth + (battleLaneCount - 1) * Mathf.Max(2f, laneGap)) * cellSize;
-    public float BranchStartWorld => Mathf.Floor(laneLength * Mathf.Clamp(mergeStartNormalized, .12f, .35f)) * cellSize;
-    public float BranchEndWorld => Mathf.Floor(laneLength * Mathf.Clamp(mergeStartNormalized + .12f, .24f, .47f)) * cellSize;
+    public float BranchStartWorld => 0f;
+    public float BranchEndWorld => 0f;
     public float MergeStartWorld => BranchEndWorld;
     public float FinalRoadStartWorld => BranchStartWorld;
     public float LaneRoadWidth => RoadWidth;
     public float RoadStartX(int laneIndex) => laneIndex * (laneWidth + Mathf.Max(2f, laneGap)) * cellSize;
     public float RoadCenterX(int laneIndex) => RoadStartX(Mathf.Clamp(laneIndex, 0, battleLaneCount - 1)) + RoadWidth * .5f;
+    public int PlayerDefenseLaneIndex => 0;
+    public int EnemyDefenseLaneIndex => 1;
 
     public float LaneCenterX(int laneIndex, float z)
     {
-        float branchT = Mathf.InverseLerp(BranchStartWorld, BranchEndWorld, z);
-        return Mathf.Lerp(RoadCenterX(battleLaneCount / 2), RoadCenterX(laneIndex), branchT);
+        return RoadCenterX(laneIndex);
     }
 
-    public bool IsInMergeZone(float z) => z >= BranchStartWorld && z <= BranchEndWorld;
-    public bool IsConnectorRow(int row) => row == laneLength / 2 || row == laneLength * 3 / 4;
+    public bool IsInMergeZone(float z) => false;
+    public bool IsConnectorRow(int row) => false;
+
+    public int LaneIndexForX(float x)
+    {
+        int best = 0;
+        float bestDistance = float.PositiveInfinity;
+        for (int i = 0; i < battleLaneCount; i++)
+        {
+            float distance = Mathf.Abs(x - RoadCenterX(i));
+            if (distance < bestDistance) { best = i; bestDistance = distance; }
+        }
+        return best;
+    }
+
+    public bool IsPointInRoad(int laneIndex, float x, float z, float inset = 0f)
+    {
+        if (laneIndex < 0 || laneIndex >= battleLaneCount || z < 0f || z >= LengthWorld) return false;
+        float halfWidth = Mathf.Max(.05f, RoadWidth * .5f - Mathf.Max(0f, inset));
+        return Mathf.Abs(x - RoadCenterX(laneIndex)) < halfWidth;
+    }
 
     public bool IsWalkable(float x, float z)
     {
@@ -88,10 +108,8 @@ public partial class LaneGenerator : MonoBehaviour
         if (row < 0 || row >= laneLength || column < 0 || column >= Mathf.RoundToInt(WidthWorld / cellSize)) return false;
         float x = (column + .5f) * cellSize;
         float z = (row + .5f) * cellSize;
-        if (IsConnectorRow(row) && row * cellSize > BranchEndWorld)
-            return x >= RoadStartX(0) && x < RoadStartX(battleLaneCount - 1) + RoadWidth;
         for (int laneIndex = 0; laneIndex < battleLaneCount; laneIndex++)
-            if (Mathf.Abs(x - LaneCenterX(laneIndex, z)) < RoadWidth * .5f) return true;
+            if (IsPointInRoad(laneIndex, x, z)) return true;
         return false;
     }
 
@@ -104,17 +122,14 @@ public partial class LaneGenerator : MonoBehaviour
     {
         // Existing prototype scenes may already be open when the new script
         // compiles, so upgrade their in-memory values before saving the layout.
-        if (!transform.Find("ThreeRoadLayoutV2"))
+        if (!transform.Find(GenerationVersion))
         {
-            laneLength = Mathf.Max(112, laneLength);
-            mergeStartNormalized = .18f;
+            laneLength = Mathf.Max(128, laneLength);
+            laneWidth = Mathf.Max(10, laneWidth);
         }
-        // V7 deliberately widens the two city districts. Every geometry,
-        // routing, spawn and camera consumer derives its X coordinate from
-        // laneGap/WidthWorld, so migrate the serialized V6 scene here rather
-        // than applying independent visual offsets.
-        laneGap = Mathf.Max(12f, laneGap);
-        laneLength = Mathf.Max(32, laneLength); laneWidth = Mathf.Max(4, laneWidth);
+        battleLaneCount = 2;
+        laneGap = Mathf.Max(18f, laneGap);
+        laneLength = Mathf.Max(64, laneLength); laneWidth = Mathf.Max(6, laneWidth);
         ConfigureLighting();
         ClearGenerated();
         EnsureMaterials();
@@ -126,7 +141,7 @@ public partial class LaneGenerator : MonoBehaviour
         Transform goal = Group("GoalArea");
         Transform decor = Group("Decorations");
         Transform baseGround = Group("BattlefieldBaseGround");
-        Group("ThreeRoadLayoutV2");
+        Group("ClassicTwoLaneLayout");
         Group("ArcaneRecoveryV3");
         Group("StructuredOutskirtsV4");
         Group(GenerationVersion);
@@ -142,7 +157,6 @@ public partial class LaneGenerator : MonoBehaviour
         for (int z = 0; z < laneLength; z++)
             for (int x = 0; x < Mathf.RoundToInt(WidthWorld / cellSize); x++)
             {
-                if (z * cellSize >= BranchStartWorld && z * cellSize < BranchEndWorld) continue;
                 if (!IsWalkableCell(x, z)) continue;
                 Vector3 pos = new Vector3((x + .5f) * cellSize, 0, (z + .5f) * cellSize);
                 GameObject tile;
@@ -169,16 +183,18 @@ public partial class LaneGenerator : MonoBehaviour
                 }
             }
 
-        BuildSmoothBranchPaving(floor, roadSurfaceY, usingKenney ? pavingMaterial : floorMaterial);
-
         BuildPhysicalRoadWalls(walls, pillars, usingKenney);
-        if (usingKenney) BuildThreeRoadEnds(spawn, goal);
+        if (usingKenney) BuildClassicTwoLaneEnds(spawn, goal);
         else
         {
-            CreatePortal(spawn, new Vector3(WidthWorld * .5f, .35f, .8f), new Color(.1f, .65f, 1f), "BlueSpawnPortal");
-            for (int i = 0; i < battleLaneCount; i++)
-                CreateCrystal(goal, new Vector3(RoadCenterX(i), 1.0f, LengthWorld - .8f), new Color(1f, .08f, .05f), $"RedOrigin_{i}");
-            // The paving already owns these surfaces; endpoint markers do not add floors.
+            CreatePortal(spawn, new Vector3(RoadCenterX(PlayerDefenseLaneIndex), .35f, .8f),
+                new Color(.1f, .65f, 1f), "PlayerHeroSpawn");
+            CreatePortal(spawn, new Vector3(RoadCenterX(EnemyDefenseLaneIndex), .35f, .8f),
+                new Color(.15f, .85f, .45f), "AlliedUnitSpawn");
+            CreateCrystal(goal, new Vector3(RoadCenterX(PlayerDefenseLaneIndex), 1f, LengthWorld - .8f),
+                new Color(1f, .08f, .05f), "EnemyMobOrigin");
+            CreateCrystal(goal, new Vector3(RoadCenterX(EnemyDefenseLaneIndex), 1f, LengthWorld - .8f),
+                new Color(1f, .35f, .08f), "EnemyHeroSanctum");
         }
         CreateDecorations(decor);
         if (createScalePlaceholders) CreatePlaceholders(decor);
@@ -376,6 +392,8 @@ public partial class LaneGenerator : MonoBehaviour
                 case "OutskirtsVisibilityV5":
                 case "ArcaneCityV6":
                 case "WiderArcaneDistrictsV7":
+                case "TwinArcaneRunesV8":
+                case "ClassicTwoLaneLayout":
                 case GenerationVersion:
                     DestroyImmediate(child.gameObject);
                     break;

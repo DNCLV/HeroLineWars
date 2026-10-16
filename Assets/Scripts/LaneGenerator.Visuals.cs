@@ -27,10 +27,10 @@ public partial class LaneGenerator
     [Range(0f, .8f)] public float outskirtsRuneStrength = .35f;
     [Tooltip("Radius in lane-cell units for the subtle rune circles on the outer apron.")]
     [Range(1f, 5f)] public float outskirtsRuneRadius = 2.4f;
-    [Header("Inter-lane arcane runes")]
-    [Tooltip("World-space radius of each of the two primary inter-lane rune circles.")]
+    [Header("Inter-lane arcane rune")]
+    [Tooltip("World-space radius of the primary rune circle in the district between the two roads.")]
     [Range(2.5f, 5.25f)] public float interLaneRuneRadius = 4.6f;
-    [Tooltip("Emission multiplier for the two primary rune circles.")]
+    [Tooltip("Emission multiplier for the primary inter-lane rune circle.")]
     [Range(0f, 2.5f)] public float interLaneRuneBrightness = 1.35f;
     public Color interLaneRuneAColor = new Color(.08f, .78f, 1f);
     public Color interLaneRuneBColor = new Color(.16f, .58f, 1f);
@@ -134,14 +134,15 @@ public partial class LaneGenerator
         gardenMaterial.SetFloat("_OutskirtsRuneRadius", outskirtsRuneRadius);
         float runeZ = LengthWorld * .43f;
         float gapA = RoadStartX(0) + RoadWidth + laneGap * cellSize * .5f;
-        float gapB = RoadStartX(1) + RoadWidth + laneGap * cellSize * .5f;
         Vector3 runeAWorld = transform.TransformPoint(new Vector3(gapA, 0f, runeZ));
-        Vector3 runeBWorld = transform.TransformPoint(new Vector3(gapB, 0f, runeZ));
         float coordinateScale = Mathf.Max(.001f, cellSize);
         gardenMaterial.SetVector("_DistrictRuneA", new Vector4(runeAWorld.x / coordinateScale,
             runeAWorld.z / coordinateScale, interLaneRuneRadius / coordinateScale, -.14f));
-        gardenMaterial.SetVector("_DistrictRuneB", new Vector4(runeBWorld.x / coordinateScale,
-            runeBWorld.z / coordinateScale, interLaneRuneRadius / coordinateScale, .21f));
+        // The classic battlefield has one district. Keep the legacy second
+        // shader input safely outside the generated footprint so an old
+        // material cannot paint a phantom rune beyond the second road.
+        gardenMaterial.SetVector("_DistrictRuneB", new Vector4(-10000f, -10000f,
+            interLaneRuneRadius / coordinateScale, .21f));
         gardenMaterial.SetColor("_DistrictRuneAColor", interLaneRuneAColor);
         gardenMaterial.SetColor("_DistrictRuneBColor", interLaneRuneBColor);
         gardenMaterial.SetColor("_DistrictRuneAccentColor", interLaneRuneAccentColor);
@@ -403,6 +404,36 @@ public partial class LaneGenerator
         }
     }
 
+    void BuildClassicTwoLaneEnds(Transform spawn, Transform goal)
+    {
+        float gateWidth = Mathf.Min(4.8f * cellSize, RoadWidth * .72f);
+        float nearZ = .8f * cellSize;
+        float farZ = LengthWorld - 1f * cellSize;
+        for (int laneIndex = 0; laneIndex < battleLaneCount; laneIndex++)
+        {
+            float x = RoadCenterX(laneIndex);
+            bool playerLane = laneIndex == PlayerDefenseLaneIndex;
+            Material nearMaterial = playerLane ? blueGatewayArchMaterial : blueRunestoneMaterial;
+            Material farMaterial = playerLane ? goalCoreMaterial : redRunestoneMaterial;
+            string nearName = playerLane ? "PlayerHeroSpawnGate" : "AlliedUnitDispatchGate";
+            string farName = playerLane ? "EnemyMobOriginGate" : "EnemyHeroSanctumGate";
+
+            ArtAsset(nearName, spawn, arenaWallGate, new Vector3(x, 0f, nearZ),
+                new Vector3(gateWidth, 1.65f * cellSize, .65f * cellSize), Vector3.zero, nearMaterial);
+            ArtAsset(farName, goal, arenaWallGate, new Vector3(x, 0f, farZ),
+                new Vector3(gateWidth, 1.65f * cellSize, .65f * cellSize), Vector3.zero, farMaterial);
+            for (int side = -1; side <= 1; side += 2)
+            {
+                ArtAsset($"{nearName}_Column_{side}", spawn, arenaColumn,
+                    new Vector3(x + side * (gateWidth * .5f + .28f * cellSize), 0f, nearZ),
+                    new Vector3(.5f, 1.55f, .55f) * cellSize, Vector3.zero, nearMaterial);
+                ArtAsset($"{farName}_Column_{side}", goal, arenaDamagedColumn,
+                    new Vector3(x + side * (gateWidth * .5f + .28f * cellSize), 0f, farZ),
+                    new Vector3(.5f, 1.45f, .55f) * cellSize, Vector3.zero, farMaterial);
+            }
+        }
+    }
+
     void BuildSupportPair(Transform parent, int row)
     {
         bool castle = castleWallPillar && (row == 0 || row == laneLength || row % (Mathf.Max(1, pillarSpacing) * 2) == 0);
@@ -502,14 +533,14 @@ public partial class LaneGenerator
 
     void BuildInterLaneRuneMarkers(Transform parent)
     {
-        // The visible circles are drawn analytically by the existing ground
-        // shader. These two empty markers make positions deterministic and
+        // The visible circle is drawn analytically by the existing ground
+        // shader. This empty marker makes its position deterministic and
         // auditable without adding floor meshes, renderers or colliders.
         float z = LengthWorld * .43f;
         for (int gap = 0; gap < battleLaneCount - 1; gap++)
         {
             float x = RoadStartX(gap) + RoadWidth + laneGap * cellSize * .5f;
-            GameObject marker = new GameObject(gap == 0 ? "RuneA_TopMiddle" : "RuneB_MiddleBottom");
+            GameObject marker = new GameObject("CentralArcaneSeal");
             marker.transform.SetParent(parent, false);
             marker.transform.localPosition = new Vector3(x, -.08f * cellSize, z);
             marker.transform.localRotation = Quaternion.Euler(0f, gap == 0 ? -8f : 12f, 0f);

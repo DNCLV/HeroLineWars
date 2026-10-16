@@ -91,7 +91,9 @@ public class HlwCameraController : MonoBehaviour
         {
             if (keyboard.rKey.wasPressedThisFrame)
             {
-                HeroLaneController hero = FindAnyObjectByType<HeroLaneController>();
+                HeroProgression playerHero = HeroProgression.PlayerHero;
+                HeroLaneController hero = playerHero ? playerHero.GetComponent<HeroLaneController>() :
+                    FindAnyObjectByType<HeroLaneController>();
                 if (hero)
                 {
                     focusPoint = hero.transform.position;

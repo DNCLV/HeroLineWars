@@ -147,11 +147,11 @@ public sealed class SchematicMinimapHud : MonoBehaviour
             if (!lane) lane = FindAnyObjectByType<LaneGenerator>();
             if (!hero)
             {
-                HeroLaneController heroController = FindAnyObjectByType<HeroLaneController>();
-                if (heroController)
+                HeroProgression playerHero = HeroProgression.PlayerHero;
+                if (playerHero)
                 {
-                    hero = heroController.transform;
-                    heroCombat = heroController.GetComponent<LaneUnitCombat>();
+                    hero = playerHero.transform;
+                    heroCombat = playerHero.GetComponent<LaneUnitCombat>();
                 }
             }
             nextReferenceSearch = Time.unscaledTime + 1f;
@@ -184,11 +184,18 @@ public sealed class SchematicMinimapHud : MonoBehaviour
             seenMarkers.Add(unit);
             if (!unitMarkers.TryGetValue(unit, out Image marker) || !marker)
             {
-                marker = GetPooledMarker(unit.Faction.team == UnitTeam.Friendly ? "AllyMarker" : "EnemyMarker");
+                bool enemyHero = unit.Faction.team == UnitTeam.Enemy &&
+                    unit.Faction.archetype == UnitArchetype.Battlemage;
+                marker = GetPooledMarker(enemyHero ? "EnemyHeroMarker" :
+                    unit.Faction.team == UnitTeam.Friendly ? "AllyMarker" : "EnemyMarker");
                 unitMarkers[unit] = marker;
             }
-            marker.color = unit.Faction.team == UnitTeam.Friendly
-                ? new Color32(73, 217, 133, 255) : new Color32(240, 82, 101, 255);
+            bool isEnemyHero = unit.Faction.team == UnitTeam.Enemy &&
+                unit.Faction.archetype == UnitArchetype.Battlemage;
+            marker.color = isEnemyHero ? new Color32(255, 160, 62, 255) :
+                unit.Faction.team == UnitTeam.Friendly
+                    ? new Color32(73, 217, 133, 255) : new Color32(240, 82, 101, 255);
+            marker.rectTransform.sizeDelta = Vector2.one * (isEnemyHero ? heroMarkerSize : unitMarkerSize);
             SetMarker(marker, SeparateOverlaps(point));
             marker.gameObject.SetActive(true);
         }
@@ -244,11 +251,10 @@ public sealed class SchematicMinimapHud : MonoBehaviour
             if (baseMarkers[i]) Destroy(baseMarkers[i].gameObject);
         baseMarkers.Clear();
         if (!lane || !mapRect) return;
-        AddBaseMarker("BlueBaseMarker", lane.RoadCenterX(lane.battleLaneCount / 2), lane.cellSize * 2f,
+        AddBaseMarker("BlueBaseMarker", lane.RoadCenterX(lane.PlayerDefenseLaneIndex), lane.cellSize * 2f,
             new Color32(67, 145, 255, 255));
-        for (int i = 0; i < lane.battleLaneCount; i++)
-            AddBaseMarker("RedBaseMarker_" + i, lane.RoadCenterX(i), lane.LengthWorld - lane.cellSize * 2f,
-                new Color32(216, 74, 87, 255));
+        AddBaseMarker("RedBaseMarker", lane.RoadCenterX(lane.EnemyDefenseLaneIndex),
+            lane.LengthWorld - lane.cellSize * 2f, new Color32(216, 74, 87, 255));
     }
 
     void AddBaseMarker(string name, float x, float z, Color color)

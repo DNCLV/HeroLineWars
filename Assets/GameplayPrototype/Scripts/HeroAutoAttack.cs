@@ -15,16 +15,20 @@ public sealed class HeroAutoAttack : MonoBehaviour
     float nextTargetSearchTime;
     LaneUnitCombat cachedTarget;
     UnitFaction faction;
+    HeroProgression progression;
 
     void Awake()
     {
         movement = GetComponent<HeroLaneController>();
         faction = GetComponent<UnitFaction>();
+        progression = GetComponent<HeroProgression>();
     }
 
     void Update()
     {
         if (!movement || movement.IsMoving || Time.time < nextAttackTime) return;
+        if (!progression) progression = GetComponent<HeroProgression>();
+        if (HealingWell.Current && HealingWell.Current.Contains(transform)) return;
         if ((!cachedTarget || cachedTarget.IsDead || !cachedTarget.Faction ||
              cachedTarget.Faction.team == (faction ? faction.team : UnitTeam.Friendly) ||
              (cachedTarget.transform.position - transform.position).sqrMagnitude > attackRange * attackRange) &&
@@ -36,6 +40,7 @@ public sealed class HeroAutoAttack : MonoBehaviour
         LaneUnitCombat target = cachedTarget;
         if (!target || !target.Health || target.Faction.team == (faction ? faction.team : UnitTeam.Friendly)) return;
         nextAttackTime = Time.time + attackInterval;
+        if (progression) progression.RecordCombatAction();
         Vector3 launch = transform.position + Vector3.up * .8f;
         CombatProjectile.Launch(launch, target.transform.position + Vector3.up * .45f,
             projectileSpeed, projectileSize, damage, target.Health, 0f,

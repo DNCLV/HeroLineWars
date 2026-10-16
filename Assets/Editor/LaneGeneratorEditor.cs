@@ -28,14 +28,18 @@ public static class LaneGeneratorEditor
         if (!File.Exists(absolutePath)) return;
         string savedScene = File.ReadAllText(absolutePath);
         if (savedScene.Contains("m_Name: ContinuousArcaneDistrictGround") &&
-            savedScene.Contains("m_Name: SmoothMergeJunction") &&
             savedScene.Contains("m_Name: ArcaneRecoveryV3") &&
             savedScene.Contains("m_Name: StructuredOutskirtsV4") &&
             savedScene.Contains("m_Name: ArcaneRunes") &&
-            savedScene.Contains($"m_Name: {LaneGenerator.GenerationVersion}")) return;
-        if (savedScene.Contains("m_Name: ThreeRoadLayoutV2"))
+            savedScene.Contains($"m_Name: {LaneGenerator.GenerationVersion}"))
         {
-            GenerateLane();
+            const string sessionKey = "HLW.ClassicTwoLane.RuntimeConfigurationV1";
+            if (!SessionState.GetBool(sessionKey, false))
+            {
+                GameplayPrototypeEditor.NormalizeClassicGameplayConfiguration(
+                    Object.FindAnyObjectByType<LaneGenerator>());
+                SessionState.SetBool(sessionKey, true);
+            }
             return;
         }
         HlwCameraController cameraController = Object.FindAnyObjectByType<HlwCameraController>();
@@ -271,44 +275,30 @@ public static class LaneGeneratorEditor
         if (!g.arenaFloor) SetupKenneyAssets();
         AssignPolishAssets(g);
         g.Generate();
+        GameplayPrototypeEditor.NormalizeClassicGameplayConfiguration(g);
         float generatedGap = g.RoadStartX(1) - (g.RoadStartX(0) + g.RoadWidth);
         Debug.Log($"[HLW Generate Lane] dimensions: roadWidth={g.RoadWidth:F2}, " +
             $"interRoadGap={generatedGap:F2}, totalWidth={g.WidthWorld:F2}, length={g.LengthWorld:F2}; " +
-            $"centers=({g.RoadCenterX(0):F2}, {g.RoadCenterX(1):F2}, {g.RoadCenterX(2):F2}).", g);
-        if (Mathf.Abs(generatedGap - 12f * g.cellSize) > .01f)
-            Debug.LogError("Generated inter-road spacing does not match the 12-cell V7 district target.", g);
+            $"centers=({g.RoadCenterX(0):F2}, {g.RoadCenterX(1):F2}).", g);
+        if (Mathf.Abs(generatedGap - g.laneGap * g.cellSize) > .01f)
+            Debug.LogError("Generated inter-road spacing does not match the configured classic lane gap.", g);
         bool routesConnected = true;
-        float mergeSampleZ = (g.BranchStartWorld + g.BranchEndWorld) * .5f;
         for (int lane = 0; lane < g.battleLaneCount; lane++)
-            routesConnected &= g.IsWalkable(g.LaneCenterX(lane, mergeSampleZ), mergeSampleZ) &&
+            routesConnected &= g.IsWalkable(g.RoadCenterX(lane), .5f * g.cellSize) &&
                 g.IsWalkable(g.RoadCenterX(lane), g.LengthWorld - .5f * g.cellSize);
-        int connectorRow = g.laneLength / 2;
-        float connectorZ = (connectorRow + .5f) * g.cellSize;
-        bool crossingsConnected = true;
-        for (int district = 0; district < g.battleLaneCount - 1; district++)
-        {
-            float gapCenter = g.RoadStartX(district) + g.RoadWidth + generatedGap * .5f;
-            crossingsConnected &= g.IsWalkable(gapCenter, connectorZ);
-        }
-        Debug.Log($"[HLW Generate Lane] route validation: branchAndEndpointPaths={routesConnected}, " +
-            $"heroConnectorAcrossBothDistricts={crossingsConnected}.", g);
-        if (!routesConnected || !crossingsConnected)
-            Debug.LogError("The widened layout has a disconnected unit route or hero crossing.", g);
+        float gapCenter = g.RoadStartX(0) + g.RoadWidth + generatedGap * .5f;
+        bool districtIsNonWalkable = !g.IsWalkable(gapCenter, g.LengthWorld * .5f);
+        Debug.Log($"[HLW Generate Lane] route validation: bothRoadsContinuous={routesConnected}, " +
+            $"interLaneDistrictSeparated={districtIsNonWalkable}.", g);
+        if (!routesConnected || !districtIsNonWalkable)
+            Debug.LogError("Classic two-lane generation produced a disconnected road or walkable district shortcut.", g);
         Transform generatedGround = g.transform.Find("BattlefieldBaseGround/ContinuousArcaneDistrictGround");
-        Transform generatedMerge = g.transform.Find("LaneFloor/SmoothMergeJunction");
         Transform generatedEdgeStrip = g.transform.Find("Decorations/EdgeStrip");
         Transform generatedRunes = g.transform.Find("Decorations/ArcaneRunes");
         Transform generatedLandmarks = g.transform.Find("Decorations/MajorLandmarks");
         Transform obsoleteDistricts = g.transform.Find("Decorations/ArcaneDistricts");
-        if (!generatedGround || !generatedMerge)
-            Debug.LogError("Lane generation did not create the expected continuous ground and smooth merge surfaces.", g);
-        else
-        {
-            Renderer groundRenderer = generatedGround.GetComponent<Renderer>();
-            Renderer mergeRenderer = generatedMerge.GetComponent<Renderer>();
-            if (groundRenderer && mergeRenderer && groundRenderer.bounds.max.y >= mergeRenderer.bounds.min.y - .01f)
-                Debug.LogWarning("Battlefield base ground is too close to the merge paving; inspect for z-fighting.", generatedGround);
-        }
+        if (!generatedGround)
+            Debug.LogError("Lane generation did not create the expected continuous outskirts ground.", g);
         if (!generatedEdgeStrip || !generatedRunes || !generatedLandmarks)
             Debug.LogError("Lane generation did not create all three structured outskirts layers.", g);
         else
@@ -318,8 +308,8 @@ public static class LaneGeneratorEditor
             Debug.Log($"Structured outskirts generated: {generatedEdgeStrip.childCount} edge details, " +
                 $"{generatedRunes.childCount} inter-lane rune markers, " +
                 $"{generatedLandmarks.childCount} outer landmark objects ({decorationCount} total).", g);
-            if (generatedRunes.childCount != 2)
-                Debug.LogError($"Expected exactly two inter-lane runes; generated {generatedRunes.childCount}.", g);
+            if (generatedRunes.childCount != 1)
+                Debug.LogError($"Expected one central Arcane seal between the two roads; generated {generatedRunes.childCount}.", g);
             foreach (Transform rune in generatedRunes)
                 Debug.Log($"{rune.name}: worldPosition={rune.position}, radius={g.interLaneRuneRadius:F2}, " +
                     $"brightness={g.interLaneRuneBrightness:F2}.", rune);
@@ -479,8 +469,8 @@ static class LaneOutskirtsDiagnostics
 
         Transform runes = decorations.Find("ArcaneRunes");
         Dictionary<string, Bounds> runeBounds = new Dictionary<string, Bounds>();
-        if (!runes || runes.childCount != 2)
-            Debug.LogError($"Expected Decorations/ArcaneRunes with exactly two markers; found " +
+        if (!runes || runes.childCount != 1)
+            Debug.LogError($"Expected Decorations/ArcaneRunes with one central marker; found " +
                 $"{(runes ? runes.childCount : 0)}.", generator);
         else
         {

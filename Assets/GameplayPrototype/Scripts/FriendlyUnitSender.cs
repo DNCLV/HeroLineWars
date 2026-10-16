@@ -16,9 +16,6 @@ public sealed class FriendlyUnitSender : MonoBehaviour
     [Min(0)] public int knightCost = 9;
     [Min(0)] public int wizardCost = 14;
 
-    int nextLaneIndex;
-    public int NextLaneIndex => nextLaneIndex;
-
     public int TotalSuccessfulPurchases { get; private set; }
     public int TotalFriendlyUnitsSpawned { get; private set; }
     public int TotalFriendlyDeaths { get; private set; }
@@ -50,7 +47,6 @@ public sealed class FriendlyUnitSender : MonoBehaviour
 
     public void ResetForMatch()
     {
-        nextLaneIndex = 0;
         TotalSuccessfulPurchases = 0;
         TotalFriendlyUnitsSpawned = 0;
         TotalFriendlyDeaths = 0;
@@ -75,7 +71,7 @@ public sealed class FriendlyUnitSender : MonoBehaviour
         if (!prefab || !spawner || !matchLoop || !CanPurchase(archetype)) return;
         if (!matchLoop.CanAfford(cost)) return;
 
-        int assignedLane = nextLaneIndex;
+        int assignedLane = spawner.AlliedDefenseLaneIndex;
         GameObject spawned = spawner.SpawnFriendly(prefab, archetype, assignedLane,
             TotalSuccessfulPurchases + 1);
         if (!spawned)
@@ -90,7 +86,6 @@ public sealed class FriendlyUnitSender : MonoBehaviour
             return;
         }
 
-        nextLaneIndex = (nextLaneIndex + 1) % 3;
         TotalFriendlyUnitsSpawned++;
         TotalSuccessfulPurchases++;
     }
