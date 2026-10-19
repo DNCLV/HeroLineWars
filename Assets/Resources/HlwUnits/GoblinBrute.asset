@@ -1,0 +1,31 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e17f1d4214a7aac46a7270e32fdc4052, type: 3}
+  m_Name: GoblinBrute
+  m_EditorClassIdentifier: Assembly-CSharp::UnitDefinition
+  archetype: 12
+  tier: 2
+  order: 8
+  displayName: Goblin Brute
+  cost: 70
+  maxHP: 1150
+  baseDamage: 95
+  experienceReward: 33
+  attackType: 0
+  modelPrefab: {fileID: 862030314951103073, guid: b03eeaddb1476f24c9ec3f6f2a535736, type: 3}
+  portrait: {fileID: 21300000, guid: ef0806c6747117f4aa10302bf3b613dc, type: 3}
+  attackInterval: 1.5
+  attackRange: 1.8
+  movementSpeed: 1.8
+  targetsPerAttack: 1
+  multiTargetRadius: 0
+  collisionRadius: 0.76

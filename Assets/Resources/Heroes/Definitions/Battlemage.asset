@@ -1,0 +1,45 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e6580d4f97b24d0ba2fd899d3b97f9f8, type: 3}
+  m_Name: Battlemage
+  m_EditorClassIdentifier: Assembly-CSharp::HeroDefinition
+  heroId: 0
+  displayName: Battlemage
+  classSubtitle: "Arcane Vanguard \u2022 Ranged"
+  description: Control the battlefield with fire and arcane power. Defend your lane and overwhelm the enemy hero.
+  portrait: {fileID: 0}
+  showcaseArtwork: {fileID: 0}
+  modelPrefab: {fileID: 5423765638086878077, guid: 2fc97d932702d93479e14acacdba3168, type: 3}
+  strength: 12
+  agility: 10
+  intelligence: 16
+  stamina: 14
+  basePhysicalDamage: 36
+  baseMaximumHealth: 176
+  bonusHealthPerLevel: 17.5
+  baseSpellDamage: 42
+  strengthGrowth: 2
+  agilityGrowth: 1
+  intelligenceGrowth: 2
+  staminaGrowth: 2
+  idleClip: Walking
+  runClip: Running
+  basicAttackClip: Boxing_Practice
+  faultbreakerClip: Skill_03
+  earthSpikesClip: Skill_01
+  abilities:
+  - kind: 1
+    displayName: Fireball
+    icon: {fileID: 0}
+    requiredLevel: 1
+    maximumRank: 3
+    cooldown: 8

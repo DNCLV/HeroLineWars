@@ -10,12 +10,14 @@ public sealed class CombatProjectile : MonoBehaviour
     Vector3 destination;
     GoblinHealth target;
     UnitTeam attackerTeam;
+    Transform attacker;
     LaneGenerator lane;
     int matchNumber;
     bool initialized;
 
     public static CombatProjectile Launch(Vector3 start, Vector3 end, float speed, float size,
-        int damage, GoblinHealth target, float radius, UnitTeam attackerTeam, LaneGenerator lane, Color color)
+        int damage, GoblinHealth target, float radius, UnitTeam attackerTeam, LaneGenerator lane, Color color,
+        Transform source = null)
     {
         GameObject projectile = GameObject.CreatePrimitive(PrimitiveType.Sphere);
         projectile.name = radius > 0f ? "FireballProjectile" : "FireboltProjectile";
@@ -34,6 +36,7 @@ public sealed class CombatProjectile : MonoBehaviour
         flight.target = target;
         flight.radius = radius;
         flight.attackerTeam = attackerTeam;
+        flight.attacker = source;
         flight.lane = lane;
         flight.matchNumber = MatchLoopController.Current ? MatchLoopController.Current.MatchNumber : 0;
         flight.destination = end;
@@ -66,7 +69,7 @@ public sealed class CombatProjectile : MonoBehaviour
         else if (target)
         {
             UnitFaction targetFaction = target.GetComponent<UnitFaction>();
-            if (targetFaction && targetFaction.team != attackerTeam) target.TakeDamage(damage, attackerTeam);
+            if (targetFaction && targetFaction.team != attackerTeam) target.TakeDamage(damage, attackerTeam, attacker);
         }
         GameplayVisuals.Impact(new Vector3(destination.x, .25f, destination.z),
             Mathf.Max(.3f, size * 1.8f), new Color(1f, .48f, .12f, .9f));
@@ -75,7 +78,9 @@ public sealed class CombatProjectile : MonoBehaviour
 
     void Detonate()
     {
-        UnitCombatRegistry.DamageOpponentsInRadius(destination, radius, damage, attackerTeam, lane);
+        int hits = UnitCombatRegistry.DamageOpponentsInRadius(destination, radius, damage, attackerTeam, lane, attacker);
+        EnemyHeroAiController ai = attacker ? attacker.GetComponent<EnemyHeroAiController>() : null;
+        if (ai) ai.RecordAbilityHits(hits);
         GameplayVisuals.Impact(new Vector3(destination.x, .2f, destination.z), radius * 1.4f,
             new Color(1f, .22f, .04f, .72f), .22f);
     }

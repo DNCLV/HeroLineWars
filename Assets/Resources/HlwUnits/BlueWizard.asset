@@ -1,0 +1,31 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e17f1d4214a7aac46a7270e32fdc4052, type: 3}
+  m_Name: BlueWizard
+  m_EditorClassIdentifier: Assembly-CSharp::UnitDefinition
+  archetype: 3
+  tier: 0
+  order: 2
+  displayName: Wizard
+  cost: 6
+  maxHP: 65
+  baseDamage: 22
+  experienceReward: 12
+  attackType: 1
+  modelPrefab: {fileID: 1108377361281138831, guid: 1b16f2b06aa3529419ec0fa2d71960f5, type: 3}
+  portrait: {fileID: 21300000, guid: 1d5094f155dd41a6960f9d9edb5542db, type: 3}
+  attackInterval: 1.8
+  attackRange: 4.5
+  movementSpeed: 2.35
+  targetsPerAttack: 3
+  multiTargetRadius: 2.6
+  collisionRadius: 0.56

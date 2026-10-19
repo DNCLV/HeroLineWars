@@ -41,9 +41,9 @@ public sealed class FriendlyUnitSender : MonoBehaviour
         purchaseBalanceRevision = 1;
     }
 
-    public void SendArcher() => Send(greenArcherPrefab, UnitArchetype.GreenArcher, archerCost);
-    public void SendKnight() => Send(holyKnightPrefab, UnitArchetype.HolyKnight, knightCost);
-    public void SendWizard() => Send(blueWizardPrefab, UnitArchetype.BlueWizard, wizardCost);
+    public void SendArcher() => TrySend(UnitArchetype.GreenArcher);
+    public void SendKnight() => TrySend(UnitArchetype.HolyKnight);
+    public void SendWizard() => TrySend(UnitArchetype.BlueWizard);
 
     public bool CanPurchase(UnitArchetype archetype)
     {
@@ -53,8 +53,15 @@ public sealed class FriendlyUnitSender : MonoBehaviour
         return matchLoop.CanAfford(Cost(archetype));
     }
 
-    public int Cost(UnitArchetype archetype) => archetype == UnitArchetype.GreenArcher ? archerCost :
-        archetype == UnitArchetype.HolyKnight ? knightCost : wizardCost;
+    public int Cost(UnitArchetype archetype)
+    {
+        UnitDefinition definition = UnitRoster.Find(archetype);
+        if (definition) return definition.cost;
+        if (archetype == UnitArchetype.GreenArcher) return archerCost;
+        if (archetype == UnitArchetype.HolyKnight) return knightCost;
+        if (archetype == UnitArchetype.BlueWizard) return wizardCost;
+        return int.MaxValue;
+    }
 
     public void ResetForMatch()
     {
@@ -75,12 +82,14 @@ public sealed class FriendlyUnitSender : MonoBehaviour
             $"deaths: {TotalFriendlyDeaths}, completed at enemy base: {TotalFriendlyUnitsReachedEnemyBase}.", this);
     }
 
-    void Send(GameObject prefab, UnitArchetype archetype, int cost)
+    public bool TrySend(UnitArchetype archetype)
     {
+        GameObject prefab = PrefabFor(archetype);
+        int cost = Cost(archetype);
         if (!matchLoop) matchLoop = GetComponent<MatchLoopController>();
         if (!spawner) spawner = GetComponent<GoblinWaveSpawner>();
-        if (!prefab || !spawner || !matchLoop || !CanPurchase(archetype)) return;
-        if (!matchLoop.CanAfford(cost)) return;
+        if (!prefab || !spawner || !matchLoop || !CanPurchase(archetype)) return false;
+        if (!matchLoop.CanAfford(cost)) return false;
 
         int assignedLane = spawner.AlliedDefenseLaneIndex;
         // Keep rapidly purchased units physically readable. The previous
@@ -97,19 +106,27 @@ public sealed class FriendlyUnitSender : MonoBehaviour
         if (!spawned)
         {
             Debug.LogWarning($"{archetype} spawn failed; purchase was rejected and no Gold was charged.", this);
-            return;
+            return false;
         }
         if (!matchLoop.TryCommitUnitPurchase(cost, archetype))
         {
             Destroy(spawned);
             Debug.LogWarning($"{archetype} purchase could not be committed; spawned unit was removed without charging.", this);
-            return;
+            return false;
         }
 
         TotalFriendlyUnitsSpawned++;
         TotalSuccessfulPurchases++;
+        return true;
     }
 
-    GameObject PrefabFor(UnitArchetype archetype) => archetype == UnitArchetype.GreenArcher ? greenArcherPrefab :
-        archetype == UnitArchetype.HolyKnight ? holyKnightPrefab : blueWizardPrefab;
+    public GameObject PrefabFor(UnitArchetype archetype)
+    {
+        UnitDefinition definition = UnitRoster.Find(archetype);
+        if (definition && definition.modelPrefab) return definition.modelPrefab;
+        if (archetype == UnitArchetype.GreenArcher) return greenArcherPrefab;
+        if (archetype == UnitArchetype.HolyKnight) return holyKnightPrefab;
+        if (archetype == UnitArchetype.BlueWizard) return blueWizardPrefab;
+        return null;
+    }
 }

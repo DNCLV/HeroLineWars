@@ -16,14 +16,15 @@ public sealed class HeroProgression : MonoBehaviour
     [Min(0)] public int startingStamina = 14;
 
     [Header("Derived-stat formulas")]
-    [Min(1)] public int baseMaximumHealth = 240;
-    [Min(0f)] public float healthPerStamina = 20f;
-    [Min(0f)] public float basePhysicalDamage = 6f;
-    [Min(0f)] public float damagePerStrength = 1f;
+    [Min(1)] public int baseMaximumHealth = 176;
+    [Min(0f)] public float bonusHealthPerLevel = 17.5f;
+    [Min(0f)] public float staminaHealthPercentPerPoint = .05f;
+    [Min(0f)] public float basePhysicalDamage = 13f;
+    [Min(0f)] public float strengthDamagePercentPerPoint = .03f;
     [Min(.1f)] public float baseAttackInterval = 1.35f;
     [Min(0f)] public float attackSpeedPerAgility = .025f;
-    [Min(0f)] public float baseSpellDamage = 9f;
-    [Min(0f)] public float spellDamagePerIntelligence = 1f;
+    [Min(0f)] public float baseSpellDamage = 15.25f;
+    [Min(0f)] public float intelligenceAbilityPercentPerPoint = .04f;
     [Min(0f)] public float baseRegenerationPerSecond;
     [Min(0f)] public float regenerationPerStamina = .05f;
     [Min(0f)] public float passiveRegenerationDelay = 8f;
@@ -44,12 +45,20 @@ public sealed class HeroProgression : MonoBehaviour
     public bool IsPlayerHero => isPlayerHero;
     public float LastCombatTime { get; private set; } = float.NegativeInfinity;
     public float RegenerationPerSecond => baseRegenerationPerSecond + Stamina * regenerationPerStamina;
+    public float BasicAttackDamageMultiplier => 1f + Strength * strengthDamagePercentPerPoint;
+    public float AttackSpeedMultiplier => 1f + Agility * attackSpeedPerAgility;
+    public float ActiveAbilityDamageMultiplier => 1f + Intelligence * intelligenceAbilityPercentPerPoint;
+    public float MaximumHealthMultiplier => 1f + Stamina * staminaHealthPercentPerPoint;
     public GoblinHealth Health { get; private set; }
     public static HeroProgression PlayerHero { get; private set; }
 
     HeroAutoAttack autoAttack;
     FireballAbility fireball;
     HeroAbilityLoadout abilityLoadout;
+    int strengthGrowth;
+    int agilityGrowth;
+    int intelligenceGrowth;
+    int staminaGrowth;
 
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
     static void ResetStatics() { PlayerHero = null; }
@@ -81,9 +90,29 @@ public sealed class HeroProgression : MonoBehaviour
     public void Configure(bool playerControlled)
     {
         isPlayerHero = playerControlled;
-        enableExperience = playerControlled;
+        enableExperience = true;
         if (playerControlled) PlayerHero = this;
         RecalculateDerivedStats(false);
+    }
+
+    public void ConfigureDefinition(HeroDefinition definition)
+    {
+        if (!definition) return;
+        startingStrength = definition.strength;
+        startingAgility = definition.agility;
+        startingIntelligence = definition.intelligence;
+        startingStamina = definition.stamina;
+        basePhysicalDamage = definition.basePhysicalDamage;
+        baseMaximumHealth = definition.baseMaximumHealth;
+        bonusHealthPerLevel = definition.bonusHealthPerLevel;
+        baseSpellDamage = definition.baseSpellDamage;
+        strengthGrowth = definition.strengthGrowth;
+        agilityGrowth = definition.agilityGrowth;
+        intelligenceGrowth = definition.intelligenceGrowth;
+        staminaGrowth = definition.staminaGrowth;
+        if (!abilityLoadout) abilityLoadout = GetComponent<HeroAbilityLoadout>();
+        if (abilityLoadout) abilityLoadout.Configure(definition);
+        ResetProgression();
     }
 
     public void ResetProgression()
@@ -114,6 +143,10 @@ public sealed class HeroProgression : MonoBehaviour
             Experience -= ExperienceToNextLevel;
             Level++;
             UnspentSkillPoints++;
+            Strength += strengthGrowth;
+            Agility += agilityGrowth;
+            Intelligence += intelligenceGrowth;
+            Stamina += staminaGrowth;
             RecalculateDerivedStats(true);
         }
     }
@@ -136,20 +169,25 @@ public sealed class HeroProgression : MonoBehaviour
         return true;
     }
 
+    public void AwardExperienceIfNearby(Vector3 defeatedPosition, UnitArchetype archetype)
+    {
+        if (!enableExperience || !Health || Health.IsDead) return;
+        Vector3 delta = defeatedPosition - transform.position;
+        delta.y = 0f;
+        if (delta.sqrMagnitude > experienceRange * experienceRange) return;
+        AddExperience(ExperienceReward(archetype));
+    }
+
     public static void AwardNearbyExperience(Vector3 defeatedPosition, UnitArchetype archetype)
     {
-        HeroProgression hero = PlayerHero;
-        if (!hero || !hero.enableExperience || !hero.Health || hero.Health.IsDead) return;
-        Vector3 delta = defeatedPosition - hero.transform.position;
-        delta.y = 0f;
-        if (delta.sqrMagnitude > hero.experienceRange * hero.experienceRange) return;
-        hero.AddExperience(ExperienceReward(archetype));
+        if (PlayerHero) PlayerHero.AwardExperienceIfNearby(defeatedPosition, archetype);
     }
 
     public void RecalculateDerivedStats(bool preserveHealthRatio)
     {
         if (!Health) Health = GetComponent<GoblinHealth>();
-        int maximumHealth = Mathf.Max(1, Mathf.RoundToInt(baseMaximumHealth + Stamina * healthPerStamina));
+        int maximumHealth = Mathf.Max(1, Mathf.RoundToInt(baseMaximumHealth * MaximumHealthMultiplier +
+            Mathf.Max(0, Level - 1) * bonusHealthPerLevel));
         if (Health)
         {
             Health.showHealthBarAlways = true;
@@ -158,15 +196,14 @@ public sealed class HeroProgression : MonoBehaviour
         if (!autoAttack) autoAttack = GetComponent<HeroAutoAttack>();
         if (autoAttack)
         {
-            autoAttack.damage = Mathf.Max(1, Mathf.RoundToInt(basePhysicalDamage + Strength * damagePerStrength));
+            autoAttack.damage = Mathf.Max(1, Mathf.RoundToInt(basePhysicalDamage * BasicAttackDamageMultiplier));
             autoAttack.attackInterval = Mathf.Max(.15f,
-                baseAttackInterval / (1f + Agility * attackSpeedPerAgility));
+                baseAttackInterval / AttackSpeedMultiplier);
         }
         if (!fireball) fireball = GetComponent<FireballAbility>();
         if (!abilityLoadout) abilityLoadout = GetComponent<HeroAbilityLoadout>();
-        float spellDamage = baseSpellDamage *
-            (abilityLoadout ? abilityLoadout.FireballDamageMultiplier : 1f) +
-            Intelligence * spellDamagePerIntelligence;
+        float spellDamage = baseSpellDamage * ActiveAbilityDamageMultiplier *
+            (abilityLoadout ? abilityLoadout.FireballDamageMultiplier : 1f);
         if (fireball)
             fireball.damage = Mathf.Max(1, Mathf.RoundToInt(spellDamage));
         if (abilityLoadout) abilityLoadout.RefreshUnlocks(Level);
@@ -180,6 +217,11 @@ public sealed class HeroProgression : MonoBehaviour
         if (archetype == UnitArchetype.Ghoul) return 20;
         if (archetype == UnitArchetype.SkeletonKing) return 45;
         if (archetype == UnitArchetype.UndeadDragon) return 60;
-        return archetype == UnitArchetype.Goblin ? 12 : 0;
+        if (archetype == UnitArchetype.HolyKnight) return 12;
+        if (archetype == UnitArchetype.GreenArcher) return 20;
+        if (archetype == UnitArchetype.BlueWizard) return 28;
+        if (archetype == UnitArchetype.Goblin) return 12;
+        UnitDefinition definition = UnitRoster.Find(archetype);
+        return definition ? definition.experienceReward : 0;
     }
 }

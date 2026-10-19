@@ -1,0 +1,51 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e6580d4f97b24d0ba2fd899d3b97f9f8, type: 3}
+  m_Name: Geomancer
+  m_EditorClassIdentifier: Assembly-CSharp::HeroDefinition
+  heroId: 1
+  displayName: Geomancer
+  classSubtitle: "Earthbreaker \u2022 Melee"
+  description: Shatter enemy formations with seismic punches, crushing shockwaves and erupting stone.
+  portrait: {fileID: 21300000, guid: d576e1a9c811f0a4c88cafd8ca8b9241, type: 3}
+  showcaseArtwork: {fileID: 21300000, guid: 8213acfa4dfad8c4aa7012231b8c647a, type: 3}
+  modelPrefab: {fileID: 282529396096030201, guid: 2c0288d45e1f1cb4d9d7c28d7daafc68, type: 3}
+  strength: 18
+  agility: 10
+  intelligence: 7
+  stamina: 17
+  basePhysicalDamage: 32.5
+  baseMaximumHealth: 167
+  bonusHealthPerLevel: 17.5
+  baseSpellDamage: 15.25
+  strengthGrowth: 2
+  agilityGrowth: 1
+  intelligenceGrowth: 1
+  staminaGrowth: 2
+  idleClip: Walking
+  runClip: Running
+  basicAttackClip: Boxing_Practice
+  faultbreakerClip: Skill_03
+  earthSpikesClip: Skill_01
+  abilities:
+  - kind: 2
+    displayName: Faultbreaker
+    icon: {fileID: 0}
+    requiredLevel: 1
+    maximumRank: 3
+    cooldown: 5
+  - kind: 3
+    displayName: Earth Spikes
+    icon: {fileID: 0}
+    requiredLevel: 2
+    maximumRank: 3
+    cooldown: 20

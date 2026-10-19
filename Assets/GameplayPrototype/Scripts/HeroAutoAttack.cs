@@ -17,6 +17,7 @@ public sealed class HeroAutoAttack : MonoBehaviour
     UnitFaction faction;
     HeroProgression progression;
     FireballAbility fireball;
+    GeomancerAbilityController geomancer;
 
     void Awake()
     {
@@ -24,6 +25,7 @@ public sealed class HeroAutoAttack : MonoBehaviour
         faction = GetComponent<UnitFaction>();
         progression = GetComponent<HeroProgression>();
         fireball = GetComponent<FireballAbility>();
+        geomancer = GetComponent<GeomancerAbilityController>();
     }
 
     void Update()
@@ -38,6 +40,8 @@ public sealed class HeroAutoAttack : MonoBehaviour
         if (!progression) progression = GetComponent<HeroProgression>();
         if (!fireball) fireball = GetComponent<FireballAbility>();
         if (fireball && fireball.IsTargeting) return false;
+        if (!geomancer) geomancer = GetComponent<GeomancerAbilityController>();
+        if (geomancer && geomancer.IsTargeting) return false;
         if (HealingWell.Current && HealingWell.Current.Contains(transform)) return false;
         bool invalidTarget = !cachedTarget || cachedTarget.IsDead || !cachedTarget.Faction ||
             cachedTarget.Faction.team == (faction ? faction.team : UnitTeam.Friendly) ||
@@ -51,12 +55,19 @@ public sealed class HeroAutoAttack : MonoBehaviour
         if (!target || target.IsDead || !target.Health || !target.Faction ||
             target.Faction.team == (faction ? faction.team : UnitTeam.Friendly) ||
             (target.transform.position - transform.position).sqrMagnitude > attackRange * attackRange) return false;
-        nextAttackTime = Time.time + attackInterval;
+        nextAttackTime = Time.time + attackInterval / (geomancer ? geomancer.AttackSpeedMultiplier : 1f);
         if (progression) progression.RecordCombatAction();
-        Vector3 launch = transform.position + Vector3.up * .8f;
-        CombatProjectile.Launch(launch, target.transform.position + Vector3.up * .45f,
-            projectileSpeed, projectileSize, damage, target.Health, 0f,
-            faction ? faction.team : UnitTeam.Friendly, movement.lane, new Color(1f, .38f, .06f));
+        MatchLoopController match = MatchLoopController.Current;
+        int hitDamage = match && progression && progression.IsPlayerHero
+            ? match.ScalePlayerBasicDamage(damage) : damage;
+        if (geomancer) geomancer.ExecuteBasicAttack(target, hitDamage);
+        else
+        {
+            Vector3 launch = transform.position + Vector3.up * .8f;
+            CombatProjectile.Launch(launch, target.transform.position + Vector3.up * .45f,
+                projectileSpeed, projectileSize, hitDamage, target.Health, 0f,
+                faction ? faction.team : UnitTeam.Friendly, movement.lane, new Color(1f, .38f, .06f), transform);
+        }
         return true;
     }
 

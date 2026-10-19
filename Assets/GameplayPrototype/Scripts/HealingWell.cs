@@ -22,7 +22,6 @@ public sealed class HealingWell : MonoBehaviour
 
     void Awake()
     {
-        Current = this;
         BuildVisuals();
     }
 
@@ -34,6 +33,7 @@ public sealed class HealingWell : MonoBehaviour
     public void Configure(HeroProgression playerHero, float radius, float healingFraction, float delay)
     {
         player = playerHero;
+        if (playerHero && playerHero.IsPlayerHero) Current = this;
         healingRadius = Mathf.Max(.5f, radius);
         maximumHealthPerSecond = Mathf.Clamp(healingFraction, .01f, .25f);
         outOfCombatDelay = Mathf.Max(0f, delay);
@@ -42,7 +42,6 @@ public sealed class HealingWell : MonoBehaviour
 
     void Update()
     {
-        if (!player) player = HeroProgression.PlayerHero;
         if (!player || !player.Health || player.Health.IsDead)
         {
             SetState(false, false);

@@ -116,6 +116,40 @@ public sealed class SchematicMinimapHud : MonoBehaviour
         viewportRect.offsetMin = viewportRect.offsetMax = Vector2.zero;
         viewportGraphic = viewport.GetComponent<MinimapViewportGraphic>();
 
+        if (!frameSprite)
+        {
+            GameObject ornament = new GameObject("ArcaneMinimapBorder", typeof(RectTransform),
+                typeof(CanvasRenderer), typeof(ChamferedFrameGraphic));
+            ornament.transform.SetParent(panel.transform, false);
+            RectTransform ornamentRect = (RectTransform)ornament.transform;
+            ornamentRect.anchorMin = Vector2.zero;
+            ornamentRect.anchorMax = Vector2.one;
+            ornamentRect.offsetMin = new Vector2(3f, 3f);
+            ornamentRect.offsetMax = new Vector2(-3f, -3f);
+            ChamferedFrameGraphic ornamentGraphic = ornament.GetComponent<ChamferedFrameGraphic>();
+            ornamentGraphic.Configure(new Color(0f, 0f, 0f, 0f),
+                new Color(.26f, .75f, 1f, .72f), 15f, 2f);
+            ornamentGraphic.raycastTarget = false;
+        }
+
+        if (frameSprite)
+        {
+            GameObject skinFrameObject = new GameObject("PremiumMinimapFrame", typeof(RectTransform), typeof(Image));
+            skinFrameObject.transform.SetParent(panel.transform, false);
+            RectTransform skinFrameRect = (RectTransform)skinFrameObject.transform;
+            skinFrameRect.anchorMin = Vector2.zero;
+            skinFrameRect.anchorMax = Vector2.one;
+            skinFrameRect.offsetMin = skinFrameRect.offsetMax = Vector2.zero;
+            Image skinFrame = skinFrameObject.GetComponent<Image>();
+            skinFrame.sprite = frameSprite;
+            Vector4 border = frameSprite.border;
+            skinFrame.type = border.x > 0f || border.y > 0f || border.z > 0f || border.w > 0f
+                ? Image.Type.Sliced : Image.Type.Simple;
+            skinFrame.preserveAspect = skinFrame.type == Image.Type.Simple;
+            skinFrame.color = new Color(.68f, .9f, 1f, .9f);
+            skinFrame.raycastTarget = false;
+        }
+
         heroOuter = CreateMarker("BattlemageMarkerOutline", new Color(.025f, .04f, .065f, 1f), heroMarkerSize + 5f);
         heroInner = CreateMarker("BattlemageMarker", new Color32(255, 214, 90, 255), heroMarkerSize);
         heroCore = CreateMarker("BattlemageMarkerCore", new Color(1f, .98f, .84f, 1f), heroMarkerSize * .38f);

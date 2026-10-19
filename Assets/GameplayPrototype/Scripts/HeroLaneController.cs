@@ -20,6 +20,7 @@ public sealed class HeroLaneController : MonoBehaviour
     Transform destinationMarker;
     Transform selectionRing;
     FireballAbility fireball;
+    GeomancerAbilityController geomancerAbilities;
     bool hasDestination;
     bool scaledModel;
     readonly List<Vector3> route = new List<Vector3>();
@@ -45,6 +46,7 @@ public sealed class HeroLaneController : MonoBehaviour
         GameplayInputRouter.EnsureInstance(transform.parent);
         if (!lane) lane = FindAnyObjectByType<LaneGenerator>();
         fireball = GetComponent<FireballAbility>();
+        geomancerAbilities = GetComponent<GeomancerAbilityController>();
         if (transform.childCount > 0) modelRoot = transform.GetChild(0);
         SetupGroundEffects();
     }
@@ -139,7 +141,8 @@ public sealed class HeroLaneController : MonoBehaviour
 
     void OnLaneTap(Vector2 screenPosition)
     {
-        if (!lane || (fireball && fireball.IsTargeting)) return;
+        if (!geomancerAbilities) geomancerAbilities = GetComponent<GeomancerAbilityController>();
+        if (!lane || (fireball && fireball.IsTargeting) || (geomancerAbilities && geomancerAbilities.IsTargeting)) return;
         if (!GameplayInputRouter.TryGetLanePoint(screenPosition, lane, out Vector3 point)) return;
         Vector3 local = lane.transform.InverseTransformPoint(point);
         if (!lane.IsPointInRoad(allowedLaneIndex, local.x, local.z, boundaryInset)) return;

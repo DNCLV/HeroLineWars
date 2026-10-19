@@ -14,6 +14,7 @@ public sealed class GoblinHealth : MonoBehaviour
     public int MaximumHitPoints => maximumHitPoints;
     public bool IsDead { get; private set; }
     public float LastDamageTime { get; private set; } = float.NegativeInfinity;
+    public float FirstDamageTime { get; private set; } = float.NegativeInfinity;
 
     Renderer[] modelRenderers;
     UnitHealthBar healthBar;
@@ -68,6 +69,7 @@ public sealed class GoblinHealth : MonoBehaviour
         IsDead = false;
         enemyKillRewardGranted = false;
         fractionalHealing = 0f;
+        FirstDamageTime = float.NegativeInfinity;
         if (showHealthBarAlways) ShowHealthBar();
     }
 
@@ -91,13 +93,19 @@ public sealed class GoblinHealth : MonoBehaviour
         ShowHealthBar();
     }
 
-    public void TakeDamage(int amount, UnitTeam attackerTeam)
+    public void TakeDamage(int amount, UnitTeam attackerTeam, Transform attacker = null)
     {
         if (IsDead || amount <= 0) return;
+        if (float.IsNegativeInfinity(FirstDamageTime)) FirstDamageTime = Time.time;
         LastDamageTime = Time.time;
         HeroProgression hero = GetComponent<HeroProgression>();
         if (hero) hero.RecordDamageReceived();
+        int appliedDamage = Mathf.Min(CurrentHitPoints, amount);
         CurrentHitPoints = Mathf.Max(0, CurrentHitPoints - amount);
+        LaneUnitCombat combat = GetComponent<LaneUnitCombat>();
+        if (combat) combat.RecordIncomingDamage(appliedDamage);
+        MatchLoopController matchForDamage = MatchLoopController.Current;
+        if (matchForDamage) matchForDamage.RecordCombatDamage(attacker, this, appliedDamage, CurrentHitPoints == 0);
         ApplyHitFlash();
         if (CurrentHitPoints > 0)
         {
@@ -106,6 +114,8 @@ public sealed class GoblinHealth : MonoBehaviour
         }
         IsDead = true;
         UnitFaction faction = GetComponent<UnitFaction>();
+        if (faction && faction.archetype != UnitArchetype.Battlemage && MatchLoopController.Current)
+            MatchLoopController.Current.RecordMobDeath(faction.team);
         if (faction && faction.team == UnitTeam.Friendly)
         {
             FriendlyUnitSender sender = GetComponentInParent<FriendlyUnitSender>();
@@ -120,12 +130,23 @@ public sealed class GoblinHealth : MonoBehaviour
                 if (match) match.RewardEnemyKill(faction.team, attackerTeam, faction.archetype);
                 if (faction.team == UnitTeam.Enemy && attackerTeam == UnitTeam.Friendly)
                     HeroProgression.AwardNearbyExperience(transform.position, faction.archetype);
+                else if (faction.team == UnitTeam.Friendly && attackerTeam == UnitTeam.Enemy)
+                {
+                    EnemyHeroAiController ai = GetComponentInParent<GoblinWaveSpawner>()
+                        ? GetComponentInParent<GoblinWaveSpawner>().GetComponentInChildren<EnemyHeroAiController>() : null;
+                    if (ai && ai.Progression)
+                        ai.Progression.AwardExperienceIfNearby(transform.position, faction.archetype);
+                }
             }
         }
         HeroProgression defeatedHero = GetComponent<HeroProgression>();
+        if (Debug.isDebugBuild && combat && combat.enableHeroCombatDiagnostics && defeatedHero &&
+            !defeatedHero.IsPlayerHero)
+            Debug.Log($"[Enemy Hero Combat] died at {Time.time:F1}s; last hit={appliedDamage}, " +
+                $"attacker={(attacker ? attacker.name : attackerTeam.ToString())}, " +
+                $"previous HP={appliedDamage}.", this);
         if (defeatedHero && MatchLoopController.Current)
             MatchLoopController.Current.ReportHeroDefeated(defeatedHero.IsPlayerHero);
-        LaneUnitCombat combat = GetComponent<LaneUnitCombat>();
         if (combat) combat.enabled = false;
         Color deathColor = faction && faction.team == UnitTeam.Friendly
             ? new Color(.18f, .62f, 1f) : new Color(1f, .2f, .18f);

@@ -92,6 +92,18 @@ public sealed class FireballAbility : MonoBehaviour
         float dz = target.z - hero.z;
         if (dx * dx + dz * dz > abilityRange * abilityRange) return;
 
+        TryCastAt(point);
+    }
+
+    public bool TryCastAt(Vector3 point)
+    {
+        if (!enabled || !IsReady || !lane) return false;
+        Vector3 heroLocal = lane.transform.InverseTransformPoint(transform.position);
+        Vector3 targetLocal = lane.transform.InverseTransformPoint(point);
+        if (new Vector2(targetLocal.x - heroLocal.x, targetLocal.z - heroLocal.z).sqrMagnitude > abilityRange * abilityRange)
+            return false;
+        if (progression && progression.IsPlayerHero && HealingWell.Current && HealingWell.Current.Contains(transform))
+            return false;
         isTargeting = false;
         if (previewRing) previewRing.gameObject.SetActive(false);
         nextReadyTime = Time.time + cooldown;
@@ -100,9 +112,13 @@ public sealed class FireballAbility : MonoBehaviour
         Vector3 launch = transform.position + Vector3.up * .85f;
         Vector3 destination = point + lane.transform.up * .2f;
         UnitFaction faction = GetComponent<UnitFaction>();
+        MatchLoopController match = MatchLoopController.Current;
+        int areaDamage = match && progression && progression.IsPlayerHero
+            ? match.ScalePlayerAreaDamage(damage) : damage;
         CombatProjectile.Launch(launch, destination, projectileSpeed, projectileSize,
-            damage, null, areaRadius, faction ? faction.team : UnitTeam.Friendly,
-            lane, new Color(1f, .25f, .03f));
+            areaDamage, null, areaRadius, faction ? faction.team : UnitTeam.Friendly,
+            lane, new Color(1f, .25f, .03f), transform);
+        return true;
     }
 
     void CreatePreview()

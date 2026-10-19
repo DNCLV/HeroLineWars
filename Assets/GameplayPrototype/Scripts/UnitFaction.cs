@@ -1,7 +1,12 @@
 using UnityEngine;
 
 public enum UnitTeam { Friendly, Enemy }
-public enum UnitArchetype { Battlemage, GreenArcher, HolyKnight, BlueWizard, SkeletonKing, UndeadDragon, Ghoul, Goblin }
+// Append only: existing serialized enum values in scenes and prefabs must remain stable.
+public enum UnitArchetype
+{
+    Battlemage, GreenArcher, HolyKnight, BlueWizard, SkeletonKing, UndeadDragon, Ghoul, Goblin,
+    Treant, Seer, Druid, BarkTitan, GoblinBrute, GoblinRider, GiantGoblin, Wraith, SkeletalCommander
+}
 
 /// <summary>Faction and visual identity shared by all lane units.</summary>
 public sealed class UnitFaction : MonoBehaviour

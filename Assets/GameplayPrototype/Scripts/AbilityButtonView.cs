@@ -34,11 +34,15 @@ public sealed class AbilityButtonView : MonoBehaviour
     Image iconImage;
     Image cooldownImage;
     Image selectedImage;
+    Image pressedImage;
+    Image disabledImage;
     Text cooldownText;
     Text titleText;
     Outline backgroundOutline;
     AbilityButtonGlyph fallbackGlyph;
+    ArcaneRingGraphic decorativeRing;
     bool built;
+    bool compositeArtworkActive;
     int lastCooldownSeconds = -1;
 
     public Button Button => button;
@@ -88,7 +92,8 @@ public sealed class AbilityButtonView : MonoBehaviour
         selectedImage.raycastTarget = false;
         selectedImage.gameObject.SetActive(false);
 
-        GameObject glyphObject = new GameObject("FireballGlyphFallback", typeof(RectTransform), typeof(AbilityButtonGlyph));
+        GameObject glyphObject = new GameObject("AbilityGlyphFallback", typeof(RectTransform),
+            typeof(CanvasRenderer), typeof(AbilityButtonGlyph));
         glyphObject.transform.SetParent(transform, false);
         RectTransform glyphRect = (RectTransform)glyphObject.transform;
         Stretch(glyphRect, .62f);
@@ -142,6 +147,19 @@ public sealed class AbilityButtonView : MonoBehaviour
         frameImage.raycastTarget = false;
         frameImage.preserveAspect = true;
 
+        GameObject ringObject = new GameObject("ArcaneAbilityRing", typeof(RectTransform),
+            typeof(CanvasRenderer), typeof(ArcaneRingGraphic));
+        ringObject.transform.SetParent(transform, false);
+        RectTransform ringRect = (RectTransform)ringObject.transform;
+        ringRect.anchorMin = ringRect.anchorMax = ringRect.pivot = new Vector2(.5f, .5f);
+        ringRect.anchoredPosition = Vector2.zero;
+        ringRect.sizeDelta = new Vector2(size.x * .96f, size.y * .96f);
+        decorativeRing = ringObject.GetComponent<ArcaneRingGraphic>();
+        decorativeRing.Configure(new Color(.08f, .42f, .68f, .88f),
+            new Color(.55f, .9f, 1f, .92f), new Color(1f, .68f, .22f, .72f), .055f);
+        decorativeRing.accentTicks = 4;
+        decorativeRing.raycastTarget = false;
+
         backgroundOutline = backgroundImage.gameObject.AddComponent<Outline>();
         backgroundOutline.effectColor = new Color(selectedOutlineTint.r, selectedOutlineTint.g,
             selectedOutlineTint.b, 0f);
@@ -151,11 +169,56 @@ public sealed class AbilityButtonView : MonoBehaviour
 
     public void SetIcon(Sprite sprite)
     {
+        if (iconSprite == sprite && iconImage && iconImage.enabled == (bool)sprite) return;
         iconSprite = sprite;
         if (!built) return;
         iconImage.sprite = sprite;
         iconImage.enabled = sprite;
         fallbackGlyph.gameObject.SetActive(!sprite);
+    }
+
+    /// <summary>Uses a complete button illustration while retaining cooldown and input layers.</summary>
+    public void SetCompositeArtwork(Sprite artwork)
+    {
+        if (!built || !backgroundImage) return;
+        bool active = artwork;
+        if (compositeArtworkActive == active && (!active || backgroundImage.sprite == artwork)) return;
+        compositeArtworkActive = active;
+        backgroundImage.sprite = active ? artwork : backgroundSprite;
+        backgroundImage.color = active || backgroundSprite ? Color.white : backgroundTint;
+        backgroundImage.preserveAspect = active;
+        if (frameImage) frameImage.gameObject.SetActive(!active && frameSprite);
+        if (iconImage) iconImage.gameObject.SetActive(!active && iconSprite);
+        if (fallbackGlyph) fallbackGlyph.gameObject.SetActive(!active && !iconSprite);
+        if (titleText) titleText.gameObject.SetActive(!active);
+        if (decorativeRing) decorativeRing.gameObject.SetActive(!active);
+    }
+
+    public void SetFallbackStyle(AbilityGlyphStyle style)
+    {
+        if (fallbackGlyph) fallbackGlyph.SetStyle(style);
+    }
+
+    /// <summary>Applies optional presentation-only kit overlays without replacing button logic.</summary>
+    public void SetStateSprites(Sprite selected, Sprite pressed, Sprite disabled, Sprite cooldown)
+    {
+        if (selectedImage && selected) selectedImage.sprite = selected;
+        if (cooldownImage && cooldown) cooldownImage.sprite = cooldown;
+        if (pressed && !pressedImage)
+        {
+            pressedImage = CreateLayer("PressedArtwork", pressed, Color.white, .92f);
+            pressedImage.gameObject.SetActive(false);
+        }
+        if (disabled && !disabledImage)
+        {
+            disabledImage = CreateLayer("DisabledArtwork", disabled, Color.white, .92f);
+            disabledImage.gameObject.SetActive(false);
+        }
+        if ((pressedImage || disabledImage) && !GetComponent<HlwHudSpriteState>())
+        {
+            HlwHudSpriteState state = gameObject.AddComponent<HlwHudSpriteState>();
+            state.Configure(button, pressedImage, disabledImage);
+        }
     }
 
     /// <summary>Adjusts the three reusable art layers without changing their sprites or aspect ratios.</summary>
@@ -168,6 +231,27 @@ public sealed class AbilityButtonView : MonoBehaviour
         ResizeLayer(backgroundImage, backgroundScale);
         ResizeLayer(iconImage, iconScale);
         ResizeLayer(cooldownImage, backgroundScale);
+    }
+
+    /// <summary>Premium frame artwork already contains its own rim; hide the procedural micro-ornaments.</summary>
+    public void SetDecorativeRingVisible(bool visible)
+    {
+        if (decorativeRing) decorativeRing.gameObject.SetActive(visible);
+    }
+
+    public void SetFrameTint(Color tint)
+    {
+        if (frameImage) frameImage.color = tint;
+    }
+
+    public void UseCleanMobileRing()
+    {
+        if (frameImage) frameImage.gameObject.SetActive(false);
+        if (!decorativeRing) return;
+        decorativeRing.gameObject.SetActive(true);
+        decorativeRing.Configure(new Color(.08f, .38f, .62f, .94f),
+            new Color(.58f, .9f, 1f, .98f), Color.clear, .075f);
+        decorativeRing.accentTicks = 0;
     }
 
     public void SetCooldown(float remaining01, int secondsRemaining = 0)
@@ -190,7 +274,11 @@ public sealed class AbilityButtonView : MonoBehaviour
     public void SetLabel(string label)
     {
         abilityLabel = label;
-        if (titleText) titleText.text = label;
+        if (titleText)
+        {
+            titleText.text = label;
+            titleText.gameObject.SetActive(!compositeArtworkActive);
+        }
     }
 
     public void SetSelected(bool selected)

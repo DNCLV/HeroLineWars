@@ -6,6 +6,9 @@ EditorBuildSettings:
   serializedVersion: 2
   m_Scenes:
   - enabled: 1
+    path: Assets/Scenes/HLW_MainMenu.unity
+    guid: b7f58ab0276d4e83a49982a26d1d745a
+  - enabled: 1
     path: Assets/Scenes/HLW_LanePrototype.unity
     guid: 5f3f8f284c8e4c3aa23f8a2df5e1b901
   m_configObjects:

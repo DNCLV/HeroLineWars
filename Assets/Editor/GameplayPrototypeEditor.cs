@@ -32,6 +32,7 @@ public static class GameplayPrototypeEditor
 
         SyncCanonicalModels();
         AssetDatabase.Refresh(ImportAssetOptions.ForceSynchronousImport);
+        UnitRosterEditor.SyncRosterAssets();
         string heroPath = AssetPath(HeroModel);
         string goblinPath = AssetPath(GoblinModel);
         GameObject heroPrefab = EnsureModelPrefab(heroPath, PrefabFolder + "/Battlemage.prefab",
@@ -89,10 +90,10 @@ public static class GameplayPrototypeEditor
         sender.knightCost = 2;
         sender.wizardCost = 6;
         sender.UpgradePurchaseBalance();
-        matchLoop.startingGold = 8;
+        matchLoop.startingGold = 14;
         matchLoop.startingIncome = 1;
         matchLoop.payoutInterval = 10f;
-        matchLoop.goldSpentPerIncome = 2;
+        matchLoop.goldSpentPerIncome = 5;
         matchLoop.UpgradeEconomyBalance();
         spawner.UpgradeAlliedBalance();
         matchLoop.survivalDuration = 360f;
@@ -147,10 +148,10 @@ public static class GameplayPrototypeEditor
         sender.knightCost = 2;
         sender.wizardCost = 6;
         sender.UpgradePurchaseBalance();
-        matchLoop.startingGold = 8;
+        matchLoop.startingGold = 14;
         matchLoop.startingIncome = 1;
         matchLoop.payoutInterval = 10f;
-        matchLoop.goldSpentPerIncome = 2;
+        matchLoop.goldSpentPerIncome = 5;
         matchLoop.UpgradeEconomyBalance();
         spawner.UpgradeAlliedBalance();
         matchLoop.survivalDuration = 360f;
@@ -172,7 +173,7 @@ public static class GameplayPrototypeEditor
     static GoblinWaveSpawner.EnemyPrefab Enemy(UnitArchetype type, string path) =>
         new GoblinWaveSpawner.EnemyPrefab { archetype = type, prefab = AssetDatabase.LoadAssetAtPath<GameObject>(path) };
 
-    static string EnsureUnitPrefab(string modelName, UnitTeam team, UnitArchetype archetype, float targetHeight)
+    public static string EnsureUnitPrefab(string modelName, UnitTeam team, UnitArchetype archetype, float targetHeight)
     {
         string modelPath = AssetPath(modelName + ".glb");
         string prefabPath = UnitPrefabFolder + "/" + archetype + ".prefab";
@@ -271,7 +272,9 @@ public static class GameplayPrototypeEditor
         string destinationFolder = Path.Combine(Application.dataPath, "GameplayPrototype", "Models");
         Directory.CreateDirectory(destinationFolder);
         string[] models = { HeroModel, "Blue Wizard.glb", "Ghoul.glb", GoblinModel,
-            "Green Archer.glb", "Holy Knight.glb", "Skeleton King.glb", "Undead Dragon.glb" };
+            "Green Archer.glb", "Holy Knight.glb", "Skeleton King.glb", "Undead Dragon.glb",
+            "Treant.glb", "Seer.glb", "Druid.glb", "Bark Titan.glb", "Goblin Brute.glb",
+            "Goblin Rider.glb", "Giant Goblin.glb", "Wraith.glb", "Skeletal Commander Flying.glb" };
         foreach (string filename in models)
         {
             string source = Path.Combine(CanonicalUnitsFolder, filename);

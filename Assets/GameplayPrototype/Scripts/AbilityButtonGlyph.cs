@@ -1,13 +1,35 @@
 using UnityEngine;
 using UnityEngine.UI;
 
-/// <summary>Small procedural fire-orb glyph used when no ability icon sprite is assigned.</summary>
+public enum AbilityGlyphStyle { Fireball, Faultbreaker, EarthSpikes }
+
+/// <summary>Lightweight hero-specific fallback glyphs used when no imported ability icon exists.</summary>
+[RequireComponent(typeof(CanvasRenderer))]
 public sealed class AbilityButtonGlyph : MaskableGraphic
 {
+    public AbilityGlyphStyle style;
+
+    public void SetStyle(AbilityGlyphStyle value)
+    {
+        if (style == value) return;
+        style = value;
+        SetVerticesDirty();
+    }
+
     protected override void OnPopulateMesh(VertexHelper vh)
     {
         vh.Clear();
         Rect rect = GetPixelAdjustedRect();
+        if (style == AbilityGlyphStyle.Faultbreaker)
+        {
+            DrawFaultbreaker(vh, rect);
+            return;
+        }
+        if (style == AbilityGlyphStyle.EarthSpikes)
+        {
+            DrawEarthSpikes(vh, rect);
+            return;
+        }
         Color ember = new Color(1f, .24f, .035f, 1f) * color;
         Color gold = new Color(1f, .78f, .16f, 1f) * color;
         AddTriangle(vh, rect, new Vector2(.08f, .24f), new Vector2(.49f, .5f), new Vector2(.36f, .27f),
@@ -16,6 +38,27 @@ public sealed class AbilityButtonGlyph : MaskableGraphic
             new Color(1f, .3f, .02f, .25f) * color, ember, gold);
         AddCircle(vh, rect, new Vector2(.58f, .55f), .29f, ember, gold, 24);
         AddCircle(vh, rect, new Vector2(.63f, .62f), .13f, gold, Color.white * color, 16);
+    }
+
+    void DrawFaultbreaker(VertexHelper vh, Rect rect)
+    {
+        Color stone = new Color(.34f, .58f, .72f, 1f) * color;
+        Color arcane = new Color(.24f, .88f, 1f, 1f) * color;
+        Color bright = new Color(.82f, .97f, 1f, 1f) * color;
+        AddTriangle(vh, rect, new Vector2(.19f, .58f), new Vector2(.52f, .83f), new Vector2(.43f, .47f), stone, bright, arcane);
+        AddTriangle(vh, rect, new Vector2(.81f, .58f), new Vector2(.48f, .83f), new Vector2(.57f, .47f), stone, bright, arcane);
+        AddTriangle(vh, rect, new Vector2(.29f, .37f), new Vector2(.71f, .37f), new Vector2(.5f, .14f), arcane, arcane, bright);
+        AddCircle(vh, rect, new Vector2(.5f, .48f), .12f, arcane, bright, 12);
+    }
+
+    void DrawEarthSpikes(VertexHelper vh, Rect rect)
+    {
+        Color deep = new Color(.18f, .42f, .58f, 1f) * color;
+        Color arcane = new Color(.27f, .86f, 1f, 1f) * color;
+        Color bright = new Color(.78f, .96f, 1f, 1f) * color;
+        AddTriangle(vh, rect, new Vector2(.12f, .18f), new Vector2(.35f, .18f), new Vector2(.29f, .68f), deep, arcane, bright);
+        AddTriangle(vh, rect, new Vector2(.31f, .16f), new Vector2(.62f, .16f), new Vector2(.51f, .88f), deep, arcane, bright);
+        AddTriangle(vh, rect, new Vector2(.57f, .18f), new Vector2(.86f, .18f), new Vector2(.72f, .62f), deep, arcane, bright);
     }
 
     static void AddCircle(VertexHelper vh, Rect rect, Vector2 center, float radius,

@@ -1,131 +1,203 @@
 using UnityEngine;
+using UnityEngine.UI;
 
-/// <summary>Small camera-facing mesh bar, created only after a unit first takes damage.</summary>
+/// <summary>
+/// Persistent camera-facing health widget. The detached world-space canvas avoids inheriting
+/// mirrored GLB transforms and is created once for the lifetime of the pooled unit.
+/// </summary>
 public sealed class UnitHealthBar : MonoBehaviour
 {
-    const float BarHeight = .075f;
-    static readonly Color BackgroundColor = new Color(.035f, .045f, .055f, 1f);
-    static Material backgroundMaterial;
-    static Material friendlyFillMaterial;
-    static Material enemyFillMaterial;
+    const float HeroPixelWidth = 220f;
+    const float HeroPixelHeight = 28f;
+    const float UnitPixelWidth = 112f;
+    const float UnitPixelHeight = 14f;
 
-    Transform barRoot;
-    Transform fill;
+    static readonly Color BackgroundColor = new Color(.025f, .035f, .055f, .96f);
+    static readonly Color BorderColor = new Color(.47f, .62f, .75f, .92f);
+    static readonly Color FriendlyColor = new Color(.12f, .82f, .39f, 1f);
+    static readonly Color EnemyColor = new Color(.94f, .15f, .2f, 1f);
+
+    RectTransform widgetRoot;
+    RectTransform fill;
+    Canvas canvas;
     GoblinHealth owner;
     Camera viewCamera;
+    HeroProgression hero;
+    Text heroLevelLabel;
     float verticalOffset;
-    float barWidth;
+    float baseWorldScale;
     float fillAmount = 1f;
     bool persistent;
-    HeroProgression hero;
-    TextMesh heroLevelLabel;
-    float barCenterX;
     int displayedLevel = -1;
 
     public void Show(GoblinHealth health, int current, int maximum, bool keepVisible = false)
     {
         owner = health;
         persistent |= keepVisible;
-        if (!barRoot) CreateBar();
-        if (!barRoot) return;
+        if (!widgetRoot) CreateWidget();
+        if (!widgetRoot) return;
+
         fillAmount = maximum > 0 ? Mathf.Clamp01((float)current / maximum) : 0f;
         UpdateFill();
-        barRoot.gameObject.SetActive(persistent || current < maximum);
-        PositionBar();
+        widgetRoot.gameObject.SetActive(persistent || current < maximum);
+        UpdateHeroLevel();
+        PositionWidget();
     }
 
     public void Hide()
     {
         persistent = false;
-        if (barRoot) barRoot.gameObject.SetActive(false);
+        if (widgetRoot) widgetRoot.gameObject.SetActive(false);
     }
 
     void OnEnable()
     {
-        if (barRoot && owner && !owner.IsDead)
-            barRoot.gameObject.SetActive(persistent || owner.CurrentHitPoints < owner.MaximumHitPoints);
+        if (widgetRoot && owner && !owner.IsDead)
+            widgetRoot.gameObject.SetActive(persistent || owner.CurrentHitPoints < owner.MaximumHitPoints);
     }
 
     void OnDisable()
     {
-        if (barRoot) barRoot.gameObject.SetActive(false);
+        if (widgetRoot) widgetRoot.gameObject.SetActive(false);
     }
 
     void LateUpdate()
     {
-        if (!barRoot || !barRoot.gameObject.activeSelf || !owner) return;
+        if (!widgetRoot || !widgetRoot.gameObject.activeSelf || !owner) return;
         UpdateHeroLevel();
-        PositionBar();
+        PositionWidget();
     }
 
     void OnDestroy()
     {
-        if (!barRoot) return;
-        if (Application.isPlaying) Destroy(barRoot.gameObject);
-        else DestroyImmediate(barRoot.gameObject);
+        if (!widgetRoot) return;
+        if (Application.isPlaying) Destroy(widgetRoot.gameObject);
+        else DestroyImmediate(widgetRoot.gameObject);
     }
 
-    void CreateBar()
+    void CreateWidget()
     {
         if (!owner) return;
+
+        Bounds bounds = CalculateModelBounds(out bool foundBounds);
+        hero = owner.GetComponent<HeroProgression>();
+        bool isHero = hero;
+        UnitFaction faction = owner.GetComponent<UnitFaction>();
+        bool isEnemy = faction && faction.team == UnitTeam.Enemy;
+
+        float modelFootprint = foundBounds ? Mathf.Max(bounds.size.x, bounds.size.z) : .8f;
+        float worldWidth = isHero ? 2.2f : Mathf.Clamp(modelFootprint * .9f, .8f, 1.5f);
+        float pixelWidth = isHero ? HeroPixelWidth : UnitPixelWidth;
+        float pixelHeight = isHero ? HeroPixelHeight : UnitPixelHeight;
+        baseWorldScale = worldWidth / pixelWidth;
+        verticalOffset = foundBounds
+            ? Mathf.Max(.9f, bounds.max.y - owner.transform.position.y + .22f)
+            : (isHero ? 2.15f : 1.25f);
+
+        GameObject root = new GameObject(isHero ? "HeroHealthWidget" : "UnitHealthWidget",
+            typeof(RectTransform), typeof(Canvas));
+        root.layer = owner.gameObject.layer;
+        widgetRoot = root.GetComponent<RectTransform>();
+        widgetRoot.sizeDelta = new Vector2(pixelWidth, pixelHeight);
+        widgetRoot.pivot = new Vector2(.5f, .5f);
+
+        canvas = root.GetComponent<Canvas>();
+        canvas.renderMode = RenderMode.WorldSpace;
+        canvas.worldCamera = Camera.main;
+        canvas.overrideSorting = true;
+        canvas.sortingOrder = 120;
+
+        if (isHero)
+        {
+            CreateHeroLevelLabel(isEnemy);
+            CreateBar(new Vector2(54f, 2f), new Vector2(pixelWidth - 56f, pixelHeight - 4f), isEnemy);
+        }
+        else
+        {
+            CreateBar(new Vector2(1f, 1f), new Vector2(pixelWidth - 2f, pixelHeight - 2f), isEnemy);
+        }
+
+        widgetRoot.gameObject.SetActive(false);
+    }
+
+    Bounds CalculateModelBounds(out bool found)
+    {
         Renderer[] renderers = owner.GetComponentsInChildren<Renderer>(true);
-        bool found = false;
+        found = false;
         Bounds bounds = new Bounds(owner.transform.position, Vector3.zero);
         for (int i = 0; i < renderers.Length; i++)
         {
-            Renderer renderer = renderers[i];
-            if (!renderer || renderer.name.Contains("Ring") || renderer.name.Contains("Marker") ||
-                renderer.name.Contains("Level") || renderer.name.Contains("HealthBar")) continue;
-            if (!found) { bounds = renderer.bounds; found = true; }
-            else bounds.Encapsulate(renderer.bounds);
+            Renderer candidate = renderers[i];
+            if (!candidate || candidate.name.Contains("Ring") || candidate.name.Contains("Marker") ||
+                candidate.name.Contains("Level") || candidate.name.Contains("HealthBar") ||
+                candidate.name.Contains("HealthWidget")) continue;
+            if (!found)
+            {
+                bounds = candidate.bounds;
+                found = true;
+            }
+            else bounds.Encapsulate(candidate.bounds);
         }
+        return bounds;
+    }
 
-        hero = owner.GetComponent<HeroProgression>();
-        barWidth = hero ? 1.25f :
-            found ? Mathf.Clamp(Mathf.Max(bounds.size.x, bounds.size.z) * .85f, .55f, 1.35f) : .7f;
-        barCenterX = hero ? .32f : 0f;
-        verticalOffset = found ? Mathf.Max(.8f, bounds.max.y - owner.transform.position.y + .16f) : 1.5f;
-        viewCamera = Camera.main;
-        if (!backgroundMaterial)
-            backgroundMaterial = GameplayVisuals.GetMaterial("HLW Unit HP Background", BackgroundColor);
-        UnitFaction faction = owner.GetComponent<UnitFaction>();
-        bool enemy = faction && faction.team == UnitTeam.Enemy;
-        if (enemy && !enemyFillMaterial)
-            enemyFillMaterial = GameplayVisuals.GetMaterial("HLW Unit HP Enemy", new Color(.9f, .14f, .16f));
-        if (!enemy && !friendlyFillMaterial)
-            friendlyFillMaterial = GameplayVisuals.GetMaterial("HLW Unit HP Friendly", new Color(.14f, .78f, .42f));
-        if (!backgroundMaterial || (enemy ? !enemyFillMaterial : !friendlyFillMaterial)) return;
+    void CreateBar(Vector2 position, Vector2 size, bool enemy)
+    {
+        RectTransform border = CreateImage("Border", widgetRoot, BorderColor);
+        SetRect(border, position, size);
 
-        GameObject root = new GameObject("DamageHealthBar");
-        barRoot = root.transform;
-        barRoot.localScale = Vector3.one;
-        GameObject background = CreateQuad("Background", barRoot, backgroundMaterial, barWidth, BarHeight, 0f);
-        background.transform.localPosition = new Vector3(barCenterX, 0f, 0f);
-        GameObject fillObject = CreateQuad("Fill", barRoot, enemy ? enemyFillMaterial : friendlyFillMaterial,
-            barWidth, BarHeight * .62f, -.003f);
-        fill = fillObject.transform;
-        if (hero) CreateHeroLevelLabel(enemy);
-        barRoot.gameObject.SetActive(false);
+        RectTransform background = CreateImage("Background", border, BackgroundColor);
+        background.anchorMin = Vector2.zero;
+        background.anchorMax = Vector2.one;
+        background.offsetMin = new Vector2(2f, 2f);
+        background.offsetMax = new Vector2(-2f, -2f);
+
+        fill = CreateImage("Fill", background, enemy ? EnemyColor : FriendlyColor);
+        fill.anchorMin = Vector2.zero;
+        fill.anchorMax = Vector2.one;
+        fill.offsetMin = new Vector2(1f, 1f);
+        fill.offsetMax = new Vector2(-1f, -1f);
     }
 
     void CreateHeroLevelLabel(bool enemy)
     {
-        GameObject label = new GameObject("HeroLevel", typeof(TextMesh));
-        label.transform.SetParent(barRoot, false);
-        label.transform.localPosition = new Vector3(-barWidth * .5f - .08f, 0f, -.008f);
-        label.transform.localRotation = Quaternion.identity;
-        label.transform.localScale = Vector3.one;
-        heroLevelLabel = label.GetComponent<TextMesh>();
-        heroLevelLabel.anchor = TextAnchor.MiddleRight;
-        heroLevelLabel.alignment = TextAlignment.Right;
-        heroLevelLabel.characterSize = .075f;
-        heroLevelLabel.fontSize = 42;
+        GameObject labelObject = new GameObject("HeroLevel", typeof(RectTransform), typeof(Text));
+        labelObject.layer = widgetRoot.gameObject.layer;
+        RectTransform rect = labelObject.GetComponent<RectTransform>();
+        rect.SetParent(widgetRoot, false);
+        SetRect(rect, Vector2.zero, new Vector2(52f, HeroPixelHeight));
+
+        heroLevelLabel = labelObject.GetComponent<Text>();
+        heroLevelLabel.raycastTarget = false;
+        heroLevelLabel.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+        heroLevelLabel.fontSize = 19;
         heroLevelLabel.fontStyle = FontStyle.Bold;
-        heroLevelLabel.color = enemy ? new Color(1f, .52f, .36f) : new Color(1f, .86f, .36f);
-        MeshRenderer renderer = heroLevelLabel.GetComponent<MeshRenderer>();
-        renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
-        renderer.receiveShadows = false;
-        UpdateHeroLevel();
+        heroLevelLabel.alignment = TextAnchor.MiddleCenter;
+        heroLevelLabel.color = enemy ? new Color(1f, .54f, .35f) : new Color(1f, .86f, .35f);
+        heroLevelLabel.horizontalOverflow = HorizontalWrapMode.Overflow;
+        heroLevelLabel.verticalOverflow = VerticalWrapMode.Overflow;
+    }
+
+    static RectTransform CreateImage(string objectName, Transform parent, Color color)
+    {
+        GameObject element = new GameObject(objectName, typeof(RectTransform), typeof(Image));
+        element.layer = parent.gameObject.layer;
+        RectTransform rect = element.GetComponent<RectTransform>();
+        rect.SetParent(parent, false);
+        Image image = element.GetComponent<Image>();
+        image.color = color;
+        image.raycastTarget = false;
+        return rect;
+    }
+
+    static void SetRect(RectTransform rect, Vector2 position, Vector2 size)
+    {
+        rect.anchorMin = Vector2.zero;
+        rect.anchorMax = Vector2.zero;
+        rect.pivot = Vector2.zero;
+        rect.anchoredPosition = position;
+        rect.sizeDelta = size;
+        rect.localScale = Vector3.one;
     }
 
     void UpdateHeroLevel()
@@ -135,42 +207,28 @@ public sealed class UnitHealthBar : MonoBehaviour
         heroLevelLabel.text = $"LV{displayedLevel}";
     }
 
-    GameObject CreateQuad(string objectName, Transform parent, Material material,
-        float width, float height, float depth)
+    void PositionWidget()
     {
-        GameObject quad = GameObject.CreatePrimitive(PrimitiveType.Quad);
-        quad.name = objectName;
-        Collider collider = quad.GetComponent<Collider>();
-        if (collider) Destroy(collider);
-        quad.transform.SetParent(parent, false);
-        quad.transform.localPosition = new Vector3(0f, 0f, depth);
-        quad.transform.localScale = new Vector3(width, height, 1f);
-        Renderer renderer = quad.GetComponent<Renderer>();
-        if (renderer)
-        {
-            renderer.sharedMaterial = material;
-            renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
-            renderer.receiveShadows = false;
-        }
-        return quad;
-    }
-
-    void PositionBar()
-    {
-        if (!owner) return;
+        if (!owner || !widgetRoot) return;
         if (!viewCamera) viewCamera = Camera.main;
-        barRoot.position = owner.transform.position + Vector3.up * verticalOffset;
+        if (canvas && canvas.worldCamera != viewCamera) canvas.worldCamera = viewCamera;
+
+        widgetRoot.position = owner.transform.position + Vector3.up * verticalOffset;
         if (viewCamera)
-            barRoot.rotation = Quaternion.LookRotation(-viewCamera.transform.forward, viewCamera.transform.up);
+            widgetRoot.rotation = viewCamera.transform.rotation;
+
         float zoomScale = viewCamera && viewCamera.orthographic
-            ? Mathf.Clamp(viewCamera.orthographicSize / 12f, .82f, 1.55f) : 1f;
-        barRoot.localScale = Vector3.one * zoomScale;
+            ? Mathf.Clamp(viewCamera.orthographicSize / 12f, .82f, 1.55f)
+            : 1f;
+        widgetRoot.localScale = Vector3.one * (baseWorldScale * zoomScale);
     }
 
     void UpdateFill()
     {
         if (!fill) return;
-        fill.localScale = new Vector3(Mathf.Max(.001f, barWidth * fillAmount), BarHeight * .62f, 1f);
-        fill.localPosition = new Vector3(barCenterX - barWidth * (1f - fillAmount) * .5f, 0f, -.003f);
+        Vector2 maximum = fill.anchorMax;
+        maximum.x = Mathf.Max(.001f, fillAmount);
+        fill.anchorMax = maximum;
+        fill.offsetMax = new Vector2(fillAmount >= .999f ? -1f : 0f, -1f);
     }
 }

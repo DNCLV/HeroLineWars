@@ -8,7 +8,14 @@ using System.Collections.Generic;
 [DefaultExecutionOrder(-50)]
 public sealed class GameplayHud : MonoBehaviour
 {
-    const int HudLayoutVersion = 17;
+    const int HudLayoutVersion = 51;
+    // Painted XP track in Level_XP_Bar_Runtime.png, normalized to the full sprite.
+    static readonly Rect XpArtworkTrack = new Rect(.246f, .407f, .387f, .115f);
+    const float HudReferenceWidth = 1672f;
+    const float HudReferenceHeight = 941f;
+    [Header("Premium HUD artwork")]
+    [Tooltip("Optional presentation-only sprite kit. Empty slots retain the current generated/fantasy fallback visuals.")]
+    public HlwHudSkin hudSkin;
     [Min(120f)] public float abilityButtonSize = 176f;
     [Min(96f)] public float autoAttackButtonSize = 136f;
     [Min(64f)] public float abilitySlotSize = 78f;
@@ -53,30 +60,45 @@ public sealed class GameplayHud : MonoBehaviour
     Sprite healthBarFrameSprite;
     Sprite blueHealthFillSprite;
     Sprite redHealthFillSprite;
+    Sprite xpSolidFillSprite;
     Sprite goldIconSprite;
     Sprite incomeIconSprite;
     Sprite heartIconSprite;
     Sprite unitsIconSprite;
     Sprite itemsIconSprite;
     Sprite backIconSprite;
+    Sprite archerProfileSprite;
+    Sprite knightProfileSprite;
+    Sprite wizardProfileSprite;
 
     Button unitsToggle;
     Button itemsToggle;
+    Button potionButton;
+    Text potionLabel;
+    Text potionCooldownLabel;
+    HealingPotionItem potionItem;
     Button speedToggle;
     Button fireballButton;
     Button autoAttackButton;
     Button statsToggleButton;
     Button fireballUpgradeButton;
+    Button geomancerSecondaryButton;
+    Button geomancerSecondaryUpgradeButton;
     Button archerButton;
     Button knightButton;
     Button wizardButton;
     Button restartButton;
+    Button returnToMenuButton;
     Button enemyHeroFocusButton;
     Button playerHeroFocusButton;
     Text enemyHeroFocusLevel;
     Text playerHeroFocusLevel;
     Image enemyHeroFocusGlow;
     Image playerHeroFocusGlow;
+    Image enemyHeroFocusPortrait;
+    Image playerHeroFocusPortrait;
+    Text enemyHeroFocusName;
+    Text playerHeroFocusName;
     Image unitsToggleSelected;
     Image itemsToggleSelected;
     Image speedToggleGlow;
@@ -89,29 +111,58 @@ public sealed class GameplayHud : MonoBehaviour
     Image blueBaseFill;
     Image redBaseFill;
     Text resultLabel;
+    Text resultDurationValue;
+    Text resultLevelValue;
+    Text resultIncomeValue;
+    MatchResult lastPresentedResult = MatchResult.None;
+    int lastKnownHeroLevel = 1;
     Text archerLabel;
     Text knightLabel;
     Text wizardLabel;
     Text speedLabel;
     Text matchTimeLabel;
+    Text heroLevelCaption;
     Text heroLevelLabel;
     Text heroExperienceLabel;
     Image heroExperienceFill;
-    readonly Image[] futureAbilitySlots = new Image[3];
-    readonly Text[] futureAbilityLabels = new Text[3];
+    public bool enableXpDiagnostics;
+    int lastReportedXp = -1;
+    int lastReportedXpNeeded = -1;
+    // These point at runtime-built UI. Serialize them for Unity's hot-reload backup,
+    // then rebind by hierarchy name when domain reload restores only part of the HUD.
+    [SerializeField, HideInInspector] Image[] futureAbilitySlots = new Image[3];
+    [SerializeField, HideInInspector] Text[] futureAbilityLabels = new Text[3];
     readonly Button[] attributeUpgradeButtons = new Button[4];
     readonly Text[] attributeValueLabels = new Text[4];
     Text skillPointLabel;
     Text statsToggleLabel;
+    Image statsPointBadge;
+    Text statsPointCount;
     GameObject unitsPanel;
+    sealed class UnitPurchaseEntry
+    {
+        public UnitDefinition definition;
+        public Button button;
+        public Text costLabel;
+    }
+    readonly List<UnitPurchaseEntry> purchaseEntries = new List<UnitPurchaseEntry>(16);
+    readonly ChamferedFrameGraphic[] tierFrames = new ChamferedFrameGraphic[4];
+    UnitTier selectedUnitTier = UnitTier.Starter;
     GameObject itemsPanel;
     GameObject resultPanel;
     GameObject statsPanel;
+    RectTransform bottomLeftRoot;
+    RectTransform bottomRightRoot;
+    RectTransform progressionRoot;
     SchematicMinimapHud minimapHud;
     float activeMinimapWidth;
     float activeMinimapHeight;
     bool topHudTwoRows;
+    bool lastGeomancerBottomLayout;
     FireballAbility ability;
+    GeomancerAbilityController geomancerAbilities;
+    Text geomancerPassiveLabel;
+    AbilityButtonGlyph geomancerSecondaryGlyph;
     HeroProgression heroProgression;
     HeroAbilityLoadout abilityLoadout;
     HeroProgression enemyHeroProgression;
@@ -130,6 +181,10 @@ public sealed class GameplayHud : MonoBehaviour
     int lastSpeedMultiplier = -1;
     int lastElapsedSecond = -1;
     bool reportedRecovery;
+    bool reportedPortraitDiagnostics;
+    int lastLayoutScreenWidth = -1;
+    int lastLayoutScreenHeight = -1;
+    Rect lastLayoutSafeArea = new Rect(-1f, -1f, -1f, -1f);
     int builtHudLayoutVersion;
 
     void Awake()
@@ -143,10 +198,11 @@ public sealed class GameplayHud : MonoBehaviour
 
     void OnEnable()
     {
+        bool abilityHudReady = RebindAbilityHudReferences();
         // With Unity's reload-scene/domain options disabled, a subsequent Play
         // session can enable this component without constructing the overlay anew.
         if (Application.isPlaying && (builtHudLayoutVersion != HudLayoutVersion ||
-            !canvas || !safeRoot || !unitsToggle || !fireballButton || !autoAttackButton))
+            !canvas || !safeRoot || !unitsToggle || !fireballButton || !autoAttackButton || !abilityHudReady))
         {
             EnsureEventSystem();
             LoadFantasySprites();
@@ -155,7 +211,11 @@ public sealed class GameplayHud : MonoBehaviour
     }
 
     void OnDisable() { HlwGameSpeed.ResetToNormal(); }
-    void OnDestroy() { HlwGameSpeed.ResetToNormal(); }
+    void OnDestroy()
+    {
+        HlwGameSpeed.ResetToNormal();
+        if (xpSolidFillSprite) Destroy(xpSolidFillSprite);
+    }
     void OnApplicationQuit() { HlwGameSpeed.ResetToNormal(); }
 
     void Start()
@@ -168,9 +228,10 @@ public sealed class GameplayHud : MonoBehaviour
 
     void EnsureHudInitialized()
     {
+        bool abilityHudReady = RebindAbilityHudReferences();
         if (builtHudLayoutVersion == HudLayoutVersion && canvas && safeRoot && unitsToggle && itemsToggle && speedToggle &&
-            fireballButton && autoAttackButton &&
-            goldLabel && incomeLabel && payoutLabel && blueBaseLabel && redBaseLabel)
+            fireballButton && autoAttackButton && potionButton &&
+            goldLabel && incomeLabel && payoutLabel && blueBaseLabel && redBaseLabel && abilityHudReady)
         {
             canvas.gameObject.SetActive(true);
             canvas.enabled = true;
@@ -196,6 +257,7 @@ public sealed class GameplayHud : MonoBehaviour
 
     void LoadFantasySprites()
     {
+        if (!hudSkin) hudSkin = Resources.Load<HlwHudSkin>("HlwHud/HLW_PremiumHudSkin");
         buttonCyanSprite = Resources.Load<Sprite>("HlwFantasyUI/Buttons/Button6_cyan");
         buttonGreenSprite = Resources.Load<Sprite>("HlwFantasyUI/Buttons/Button6_green");
         buttonPurpleSprite = Resources.Load<Sprite>("HlwFantasyUI/Buttons/Button6_purple");
@@ -212,6 +274,9 @@ public sealed class GameplayHud : MonoBehaviour
         unitsIconSprite = Resources.Load<Sprite>("HlwFantasyUI/Icons/Icon54_256px");
         itemsIconSprite = Resources.Load<Sprite>("HlwFantasyUI/Icons/Icon44_256px");
         backIconSprite = Resources.Load<Sprite>("HlwFantasyUI/Icons/Icon86_256px");
+        archerProfileSprite = LoadUnitProfile("HlwUnitProfiles/GreenArcherProfile");
+        knightProfileSprite = LoadUnitProfile("HlwUnitProfiles/HolyKnightProfile");
+        wizardProfileSprite = LoadUnitProfile("HlwUnitProfiles/BlueWizardProfile");
 
         if (!fireballFrameOverride)
             fireballFrameOverride = Resources.Load<Sprite>("HlwFireball/FireballFrame");
@@ -231,6 +296,8 @@ public sealed class GameplayHud : MonoBehaviour
         {
             if (!ability) ability = HeroProgression.PlayerHero
                 ? HeroProgression.PlayerHero.GetComponent<FireballAbility>() : FindAnyObjectByType<FireballAbility>();
+            if (!geomancerAbilities && HeroProgression.PlayerHero)
+                geomancerAbilities = HeroProgression.PlayerHero.GetComponent<GeomancerAbilityController>();
             if (!sender) sender = FindAnyObjectByType<FriendlyUnitSender>();
             if (!matchLoop) matchLoop = GetComponent<MatchLoopController>() ?? FindAnyObjectByType<MatchLoopController>();
             if (!heroProgression) heroProgression = HeroProgression.PlayerHero;
@@ -249,6 +316,7 @@ public sealed class GameplayHud : MonoBehaviour
         if (autoAttackButton)
             autoAttackButton.interactable = running && HeroProgression.PlayerHero &&
                 HeroProgression.PlayerHero.Health && !HeroProgression.PlayerHero.Health.IsDead;
+        UpdatePotionButton();
         UpdateFireball(running);
         UpdateHeroProgression();
         UpdateSkillUpgradeHud();
@@ -256,10 +324,21 @@ public sealed class GameplayHud : MonoBehaviour
         UpdateSpeedVisual();
         if (sender)
         {
-            UpdatePurchaseVisual(archerButton, archerLabel, sender.CanPurchase(UnitArchetype.GreenArcher));
-            UpdatePurchaseVisual(knightButton, knightLabel, sender.CanPurchase(UnitArchetype.HolyKnight));
-            UpdatePurchaseVisual(wizardButton, wizardLabel, sender.CanPurchase(UnitArchetype.BlueWizard));
-            UpdateUnitLabels();
+            if (purchaseEntries.Count == 0 && knightButton && archerButton && wizardButton)
+            {
+                UpdatePurchaseVisual(knightButton, knightLabel, sender.CanPurchase(UnitArchetype.HolyKnight));
+                UpdatePurchaseVisual(archerButton, archerLabel, sender.CanPurchase(UnitArchetype.GreenArcher));
+                UpdatePurchaseVisual(wizardButton, wizardLabel, sender.CanPurchase(UnitArchetype.BlueWizard));
+                UpdateUnitLabels();
+            }
+            foreach (UnitPurchaseEntry entry in purchaseEntries)
+            {
+                if (!entry.button || !entry.definition) continue;
+                UpdatePurchaseVisual(entry.button, entry.costLabel,
+                    sender.CanPurchase(entry.definition.archetype));
+                if (entry.costLabel) entry.costLabel.text = $"{sender.Cost(entry.definition.archetype)} GOLD";
+            }
+            LogPortraitDiagnosticsOnce();
         }
 
         int gold = matchLoop ? matchLoop.Gold : 0;
@@ -290,23 +369,35 @@ public sealed class GameplayHud : MonoBehaviour
         if (resultPanel)
         {
             bool ended = matchLoop && matchLoop.Result != MatchResult.None;
-            resultPanel.SetActive(ended);
+            if (resultPanel.activeSelf != ended) resultPanel.SetActive(ended);
             if (ended && resultLabel)
-                resultLabel.text = matchLoop.Result == MatchResult.SurvivalVictory
-                    ? "SURVIVAL VICTORY" : matchLoop.Result == MatchResult.Victory ? "VICTORY" : "DEFEAT";
+            {
+                bool won = matchLoop.Result == MatchResult.SurvivalVictory || matchLoop.Result == MatchResult.Victory;
+                resultLabel.text = won ? "VICTORY" : "DEFEAT";
+                resultLabel.color = won ? Gold : Crimson;
+                if (resultDurationValue)
+                    resultDurationValue.text = $"{elapsedSecond / 60:00}:{elapsedSecond % 60:00}";
+                if (resultLevelValue) resultLevelValue.text = lastKnownHeroLevel.ToString();
+                if (resultIncomeValue) resultIncomeValue.text = income.ToString();
+                if (lastPresentedResult != matchLoop.Result)
+                {
+                    UpdateResultAccent(won);
+                    lastPresentedResult = matchLoop.Result;
+                }
+            }
+            else if (!ended) lastPresentedResult = MatchResult.None;
         }
     }
 
     void LateUpdate()
     {
         if (!safeRoot || !canvas || Screen.width <= 0 || Screen.height <= 0) return;
-        Rect safe = Screen.safeArea;
-        if (safe.width < 1f || safe.height < 1f)
-            safe = new Rect(0f, 0f, Screen.width, Screen.height);
-        safeRoot.anchorMin = new Vector2(safe.xMin / Screen.width, safe.yMin / Screen.height);
-        safeRoot.anchorMax = new Vector2(safe.xMax / Screen.width, safe.yMax / Screen.height);
-        safeRoot.offsetMin = safeRoot.offsetMax = Vector2.zero;
-        ResizeAbilityButton();
+        Rect safe = ValidSafeArea();
+        bool geomancerLayout = geomancerAbilities || (abilityLoadout && abilityLoadout.IsGeomancer);
+        if (Screen.width != lastLayoutScreenWidth || Screen.height != lastLayoutScreenHeight ||
+            !HlwResponsiveCanvas.Approximately(safe, lastLayoutSafeArea) ||
+            geomancerLayout != lastGeomancerBottomLayout)
+            ApplyResponsiveLayout(true);
     }
 
     void BuildCanvas()
@@ -334,21 +425,9 @@ public sealed class GameplayHud : MonoBehaviour
             safeRoot.SetParent(canvas.transform, false);
         }
 
-        canvas.renderMode = RenderMode.ScreenSpaceOverlay;
-        canvas.enabled = true;
-        canvas.overrideSorting = true;
-        canvas.sortingOrder = 50;
-        RectTransform canvasRect = canvas.GetComponent<RectTransform>();
-        canvasRect.anchorMin = Vector2.zero;
-        canvasRect.anchorMax = Vector2.one;
-        canvasRect.offsetMin = canvasRect.offsetMax = Vector2.zero;
-        canvasRect.localScale = Vector3.one;
         CanvasScaler scaler = canvas.GetComponent<CanvasScaler>();
         if (!scaler) scaler = canvas.gameObject.AddComponent<CanvasScaler>();
-        scaler.enabled = true;
-        scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
-        scaler.referenceResolution = new Vector2(1920f, 1080f);
-        scaler.matchWidthOrHeight = .5f;
+        HlwResponsiveCanvas.Configure(canvas, scaler, 50);
         GraphicRaycaster raycaster = canvas.GetComponent<GraphicRaycaster>();
         if (!raycaster) raycaster = canvas.gameObject.AddComponent<GraphicRaycaster>();
         raycaster.enabled = true;
@@ -356,7 +435,10 @@ public sealed class GameplayHud : MonoBehaviour
         safeRoot.anchorMax = Vector2.one;
         safeRoot.offsetMin = safeRoot.offsetMax = Vector2.zero;
         safeRoot.localScale = Vector3.one;
-        ResolveTopHudLayout(scaler);
+        Canvas.ForceUpdateCanvases();
+        ApplySafeAreaRect(ValidSafeArea());
+        Canvas.ForceUpdateCanvases();
+        ResolveTopHudLayout();
         safeRoot.gameObject.SetActive(true);
 
         // Rebuild the existing HUD root in-place so editor/runtime regeneration never
@@ -374,60 +456,60 @@ public sealed class GameplayHud : MonoBehaviour
         BuildSkillUpgradeControls();
         BuildResultPanel();
         builtHudLayoutVersion = HudLayoutVersion;
+        ApplyResponsiveLayout(true);
+        ConfigureLayoutValidator();
     }
 
     void BuildTopInfo()
     {
-        const float widgetWidth = 174f;
-        const float widgetHeight = 72f;
-        const float gap = 8f;
-        Vector2 widgetSize = new Vector2(widgetWidth, widgetHeight);
-        int firstRowCount = topHudTwoRows ? 3 : 5;
-        float topY = -safeAreaPadding;
-        float secondY = -safeAreaPadding - widgetHeight - gap;
+        topHudTwoRows = false;
+        GameObject rootObject = new GameObject("TopHudRoot", typeof(RectTransform));
+        rootObject.transform.SetParent(safeRoot, false);
+        RectTransform root = (RectTransform)rootObject.transform;
+        root.anchorMin = root.anchorMax = new Vector2(.5f, 1f);
+        root.pivot = new Vector2(.5f, 1f);
+        root.anchoredPosition = new Vector2(0f, -safeAreaPadding);
 
-        goldLabel = CreateTopStatWidget("GoldPanel", "GOLD", safeRoot,
-            new Vector2(-safeAreaPadding - (firstRowCount - 1) * (widgetWidth + gap), topY),
-            widgetSize, Gold, goldIconSprite, false, true);
-        incomeLabel = CreateTopStatWidget("IncomePanel", "INCOME", safeRoot,
-            new Vector2(-safeAreaPadding - (firstRowCount - 2) * (widgetWidth + gap), topY),
-            widgetSize, IncomeGreen, incomeIconSprite, false, true);
-        payoutLabel = CreateTopStatWidget("NextPanel", "NEXT", safeRoot,
-            new Vector2(-safeAreaPadding - (firstRowCount - 3) * (widgetWidth + gap), topY),
-            widgetSize, TimerViolet, null, true, true);
+        GameObject economy = CreateTopbarPanel("EconomyPanel", root,
+            hudSkin ? hudSkin.topbarEconomy : null);
+        RectTransform economyInterior = CreateRectTransform("Interior", economy.transform.Find("Content"));
+        goldLabel = CreateTopbarStatCell("GoldCell", "GOLD", economyInterior,
+            Gold, goldIconSprite, false);
+        incomeLabel = CreateTopbarStatCell("IncomeCell", "INCOME", economyInterior,
+            IncomeGreen, incomeIconSprite, false);
+        payoutLabel = CreateTopbarStatCell("NextCell", "NEXT", economyInterior,
+            TimerViolet, null, true);
 
-        int baseRowCount = topHudTwoRows ? 2 : 5;
-        float baseY = topHudTwoRows ? secondY : topY;
-        int redIndex = topHudTwoRows ? 0 : 3;
-        int blueIndex = topHudTwoRows ? 1 : 4;
-        CreateHealthWidget("RedBasePanel", "RED BASE", safeRoot,
-            new Vector2(-safeAreaPadding - (baseRowCount - 1 - redIndex) * (widgetWidth + gap), baseY),
-            widgetSize, Crimson, redHealthFillSprite, false, out redBaseLabel, out redBaseFill);
-        CreateHealthWidget("BlueBasePanel", "BLUE BASE", safeRoot,
-            new Vector2(-safeAreaPadding - (baseRowCount - 1 - blueIndex) * (widgetWidth + gap), baseY),
-            widgetSize, Blue, blueHealthFillSprite, true, out blueBaseLabel, out blueBaseFill);
+        GameObject redPanel = CreateTopbarPanel("RedBasePanel", root,
+            hudSkin ? hudSkin.topbarRedBase : null);
+        CreateTopbarHealthContent(redPanel.transform.Find("Content"), "RED BASE", Crimson, redHealthFillSprite,
+            out redBaseLabel, out redBaseFill);
+        GameObject bluePanel = CreateTopbarPanel("BlueBasePanel", root,
+            hudSkin ? hudSkin.topbarBlueBase : null);
+        CreateTopbarHealthContent(bluePanel.transform.Find("Content"), "BLUE BASE", Blue, blueHealthFillSprite,
+            out blueBaseLabel, out blueBaseFill);
+
+        LayoutThreePartTopbar(root, 1f, 1920f, 0f);
     }
 
-    void ResolveTopHudLayout(CanvasScaler scaler)
+    void ResolveTopHudLayout()
     {
-        float uiScale = Mathf.Max(.01f, scaler ? scaler.scaleFactor : 1f);
-        float safeWidth = (Screen.safeArea.width > 0f ? Screen.safeArea.width : Screen.width) / uiScale;
-        const float widgetWidth = 174f;
-        const float widgetGap = 8f;
-        float singleRowWidth = widgetWidth * 5f + widgetGap * 4f;
-        float margins = safeAreaPadding * 2f + 24f;
-        const float styledMinimapWidth = 320f;
-        const float styledMinimapHeight = 190f;
-        topHudTwoRows = safeWidth < styledMinimapWidth + singleRowWidth + margins;
-        activeMinimapWidth = styledMinimapWidth;
-        activeMinimapHeight = styledMinimapHeight;
+        float safeWidth = safeRoot && safeRoot.rect.width > 0f ? safeRoot.rect.width : 1920f;
+        float safeHeight = safeRoot && safeRoot.rect.height > 0f ? safeRoot.rect.height : 1080f;
+        float heightScale = Mathf.Clamp(safeHeight / 960f, .86f, 1f);
+        activeMinimapWidth = Mathf.Clamp(safeWidth * .18f, 272f, 320f) * heightScale;
+        float minimapAspect = hudSkin && hudSkin.minimapFrame
+            ? Mathf.Max(1.2f, hudSkin.minimapFrame.rect.width / hudSkin.minimapFrame.rect.height)
+            : 320f / 190f;
+        activeMinimapHeight = activeMinimapWidth / minimapAspect;
+        topHudTwoRows = false;
     }
 
     void BuildMinimap()
     {
         if (!minimapHud) minimapHud = canvas.GetComponent<SchematicMinimapHud>();
         if (!minimapHud) minimapHud = canvas.gameObject.AddComponent<SchematicMinimapHud>();
-        minimapHud.Build(safeRoot, panelFrameSprite, circleSprite, new Vector2(24f, -24f),
+        minimapHud.Build(safeRoot, hudSkin ? hudSkin.minimapFrame : null, circleSprite, new Vector2(24f, -24f),
             new Vector2(activeMinimapWidth, activeMinimapHeight));
     }
 
@@ -436,17 +518,22 @@ public sealed class GameplayHud : MonoBehaviour
         const float buttonHeight = 54f;
         const float gap = 8f;
         float firstY = -24f - activeMinimapHeight - gap;
-        CreateHeroFocusCard("PlayerHeroFocusCard", "MY HERO", "BATTLEMAGE", firstY,
-            Cyan, out playerHeroFocusButton, out playerHeroFocusLevel, out playerHeroFocusGlow);
+        HeroDefinition playerDefinition = HlwGameSession.Current
+            ? HlwGameSession.Current.SelectedHeroDefinition : HeroCatalog.Find(HlwHeroSelection.Battlemage);
+        HeroDefinition enemyDefinition = HeroCatalog.Find(HlwHeroSelection.Battlemage);
+        CreateHeroFocusCard("PlayerHeroFocusCard", "MY HERO", playerDefinition, firstY,
+            Cyan, out playerHeroFocusButton, out playerHeroFocusLevel, out playerHeroFocusGlow,
+            out playerHeroFocusPortrait, out playerHeroFocusName);
         playerHeroFocusButton.onClick.AddListener(() => FocusCamera(true));
-        CreateHeroFocusCard("EnemyHeroFocusCard", "ENEMY HERO", "BATTLEMAGE",
+        CreateHeroFocusCard("EnemyHeroFocusCard", "ENEMY HERO", enemyDefinition,
             firstY - buttonHeight - gap, Crimson, out enemyHeroFocusButton,
-            out enemyHeroFocusLevel, out enemyHeroFocusGlow);
+            out enemyHeroFocusLevel, out enemyHeroFocusGlow,
+            out enemyHeroFocusPortrait, out enemyHeroFocusName);
         enemyHeroFocusButton.onClick.AddListener(() => FocusCamera(false));
     }
 
-    void CreateHeroFocusCard(string objectName, string title, string heroName, float y, Color accent,
-        out Button button, out Text levelLabel, out Image selectedGlow)
+    void CreateHeroFocusCard(string objectName, string title, HeroDefinition definition, float y, Color accent,
+        out Button button, out Text levelLabel, out Image selectedGlow, out Image portrait, out Text heroName)
     {
         GameObject card = new GameObject(objectName, typeof(RectTransform), typeof(Image),
             typeof(Button), typeof(Outline));
@@ -457,13 +544,15 @@ public sealed class GameplayHud : MonoBehaviour
         rect.anchoredPosition = new Vector2(24f, y);
         rect.sizeDelta = new Vector2(activeMinimapWidth, 54f);
         Image background = card.GetComponent<Image>();
-        background.sprite = capsuleSprite;
-        background.type = capsuleSprite ? Image.Type.Sliced : Image.Type.Simple;
-        background.color = ControlNavy;
+        bool customNavigationCard = hudSkin && hudSkin.heroNavigationCard;
+        background.sprite = SkinOrFallback(customNavigationCard ? hudSkin.heroNavigationCard : null, capsuleSprite);
+        SetImageType(background, true);
+        background.color = customNavigationCard ? Color.white : new Color(.025f, .045f, .078f, .98f);
         background.raycastTarget = true;
         AddShadow(background, new Color(0f, .01f, .03f, .65f), new Vector2(0f, -3f));
         Outline outline = card.GetComponent<Outline>();
-        outline.effectColor = new Color(accent.r, accent.g, accent.b, .62f);
+        outline.effectColor = customNavigationCard
+            ? new Color(0f, 0f, 0f, 0f) : new Color(accent.r, accent.g, accent.b, .62f);
         outline.effectDistance = new Vector2(1.25f, 1.25f);
         button = card.GetComponent<Button>();
         button.targetGraphic = background;
@@ -472,22 +561,37 @@ public sealed class GameplayHud : MonoBehaviour
         MobileButtonPressFeedback feedback = card.AddComponent<MobileButtonPressFeedback>();
         feedback.Configure(button);
 
-        selectedGlow = CreateImage("SelectedGlow", card.transform, capsuleSprite, Vector2.zero,
+        if (!hudSkin || !hudSkin.heroNavigationCard)
+        {
+            ChamferedFrameGraphic metal = CreateChamferedLayer("MetallicCardFrame", card.transform,
+                new Vector2(activeMinimapWidth - 4f, 50f),
+                new Color(.018f, .035f, .064f, .92f), new Color(accent.r, accent.g, accent.b, .72f), 9f, 2f);
+            metal.transform.SetAsFirstSibling();
+        }
+
+        selectedGlow = CreateImage("SelectedGlow", card.transform,
+            SkinOrFallback(hudSkin ? hudSkin.selectedOverlay : null, capsuleSprite), Vector2.zero,
             new Vector2(activeMinimapWidth + 6f, 60f), new Color(accent.r, accent.g, accent.b, 0f), false);
-        selectedGlow.type = capsuleSprite ? Image.Type.Sliced : Image.Type.Simple;
+        SetImageType(selectedGlow, true);
         selectedGlow.transform.SetAsFirstSibling();
         levelLabel = CreateText("HeroLevel", card.transform, "LV--", new Vector2(-126f, 0f),
             new Vector2(54f, 38f), 15, TextAnchor.MiddleCenter, accent, false);
-        Image portrait = CreateImage("HeroPortrait", card.transform, circleSprite,
-            new Vector2(-78f, 0f), new Vector2(40f, 40f), Color.Lerp(ControlNavy, accent, .34f), false);
+        Image portraitWell = CreateImage("PortraitWell", card.transform, circleSprite,
+            new Vector2(-78f, 0f), new Vector2(44f, 44f), Color.Lerp(ControlNavy, accent, .45f), false);
+        portraitWell.preserveAspect = true;
+        portrait = CreateImage("HeroPortrait", card.transform, definition ? definition.portrait : null,
+            new Vector2(-78f, 0f), new Vector2(38f, 38f), Color.white, false);
         portrait.preserveAspect = true;
-        Text portraitGlyph = CreateText("PortraitGlyph", card.transform, "B", new Vector2(-78f, 0f),
-            new Vector2(36f, 36f), 18, TextAnchor.MiddleCenter, Color.white, false);
-        AddTextShadow(portraitGlyph);
+        if (!portrait.sprite)
+        {
+            portrait.sprite = fireballIconOverride ? fireballIconOverride : heartIconSprite;
+            portrait.color = new Color(1f, .82f, .38f, 1f);
+        }
         Text titleText = CreateText("CardTitle", card.transform, title, new Vector2(25f, 10f),
             new Vector2(162f, 22f), 14, TextAnchor.MiddleLeft, Color.white, false);
         AddTextShadow(titleText);
-        CreateText("HeroName", card.transform, heroName, new Vector2(25f, -11f),
+        heroName = CreateText("HeroName", card.transform,
+            definition ? definition.displayName.ToUpperInvariant() : "BATTLEMAGE", new Vector2(25f, -11f),
             new Vector2(162f, 18f), 10, TextAnchor.MiddleLeft,
             new Color(.62f, .72f, .82f, 1f), false);
     }
@@ -584,40 +688,168 @@ public sealed class GameplayHud : MonoBehaviour
 
     void BuildUnitMenu()
     {
-        // A transparent anchored group lets the three purchase buttons fan out
-        // above the primary Units control without drawing a rectangular tray.
+        bottomLeftRoot = CreateBottomLayoutRoot("BottomLeftRoot");
         unitsPanel = new GameObject("UnitsFanMenu", typeof(RectTransform), typeof(Image));
-        unitsPanel.transform.SetParent(safeRoot, false);
+        unitsPanel.transform.SetParent(bottomLeftRoot, false);
         RectTransform fanRect = unitsPanel.GetComponent<RectTransform>();
         fanRect.anchorMin = fanRect.anchorMax = Vector2.zero;
-        fanRect.pivot = Vector2.zero;
-        fanRect.anchoredPosition = new Vector2(24f, 24f);
-        fanRect.sizeDelta = new Vector2(348f, 336f);
+        fanRect.pivot = new Vector2(.5f, .5f);
+        fanRect.anchoredPosition = new Vector2(322f, 352f);
+        fanRect.sizeDelta = new Vector2(610f, 265f);
         Image fanInputBlocker = unitsPanel.GetComponent<Image>();
-        fanInputBlocker.color = Color.clear;
+        fanInputBlocker.color = new Color(.013f, .035f, .065f, .94f);
         fanInputBlocker.raycastTarget = true;
+        CreateChamferedLayer("TierMenuFrame", unitsPanel.transform, fanRect.sizeDelta,
+            new Color(.018f, .048f, .08f, .94f), new Color(.25f, .62f, .84f, .84f), 14f, 2f);
         unitsPanel.SetActive(false);
-        CreatePurchaseCard("SendKnightButton", "K", "KNIGHT", new Vector2(8f, 154f),
-            KnightAccent, buttonCyanSprite, out knightButton, out knightLabel);
-        CreatePurchaseCard("SendArcherButton", "A", "ARCHER", new Vector2(118f, 212f),
-            ArcherAccent, buttonGreenSprite, out archerButton, out archerLabel);
-        CreatePurchaseCard("SendWizardButton", "W", "WIZARD", new Vector2(228f, 154f),
-            WizardAccent, buttonPurpleSprite, out wizardButton, out wizardLabel);
-        archerButton.onClick.AddListener(SendArcher);
-        knightButton.onClick.AddListener(SendKnight);
-        wizardButton.onClick.AddListener(SendWizard);
+        purchaseEntries.Clear();
+        string[] tabNames = { "STARTER", "NATURE", "GOBLINS", "UNDEAD" };
+        for (int i = 0; i < tierFrames.Length; i++)
+        {
+            int tierIndex = i;
+            GameObject tab = new GameObject("TierTab" + tabNames[i], typeof(RectTransform), typeof(Image), typeof(Button));
+            tab.transform.SetParent(unitsPanel.transform, false);
+            RectTransform tabRect = (RectTransform)tab.transform;
+            tabRect.anchorMin = tabRect.anchorMax = Vector2.zero;
+            tabRect.pivot = new Vector2(.5f, .5f);
+            tabRect.anchoredPosition = new Vector2(78f + i * 151f, 226f);
+            tabRect.sizeDelta = new Vector2(137f, 38f);
+            Image hitArea = tab.GetComponent<Image>();
+            hitArea.color = Color.clear;
+            hitArea.raycastTarget = true;
+            Button tabButton = tab.GetComponent<Button>();
+            tabButton.transition = Selectable.Transition.None;
+            tierFrames[i] = CreateChamferedLayer("TabFrame", tab.transform, tabRect.sizeDelta,
+                ControlNavy, Cyan, 8f, 2f);
+            Text caption = CreateText("Label", tab.transform, tabNames[i], Vector2.zero,
+                new Vector2(125f, 28f), 14, TextAnchor.MiddleCenter, Color.white, false);
+            caption.fontStyle = FontStyle.Bold;
+            tabButton.onClick.AddListener(() => SelectUnitTier((UnitTier)tierIndex));
+        }
+        foreach (UnitDefinition definition in UnitRoster.All)
+        {
+            if (!definition) continue;
+            CreatePurchaseCard("Send" + definition.archetype + "Button", definition.displayName.ToUpperInvariant(),
+                Vector2.zero, Cyan, buttonCyanSprite, definition.portrait, out Button button, out Text costLabel);
+            UnitArchetype archetype = definition.archetype;
+            button.onClick.AddListener(() =>
+            {
+                if (!sender) sender = FindAnyObjectByType<FriendlyUnitSender>();
+                if (sender) sender.TrySend(archetype);
+            });
+            purchaseEntries.Add(new UnitPurchaseEntry { definition = definition, button = button, costLabel = costLabel });
+            if (archetype == UnitArchetype.HolyKnight) { knightButton = button; knightLabel = costLabel; }
+            else if (archetype == UnitArchetype.GreenArcher) { archerButton = button; archerLabel = costLabel; }
+            else if (archetype == UnitArchetype.BlueWizard) { wizardButton = button; wizardLabel = costLabel; }
+        }
+        // Unity may open the scene before the Editor has generated roster assets.
+        // Keep the existing starter purchases available during that import window.
+        if (purchaseEntries.Count == 0)
+        {
+            CreatePurchaseCard("SendKnightButton", "KNIGHT", Vector2.zero, Cyan, buttonCyanSprite,
+                knightProfileSprite, out knightButton, out knightLabel);
+            CreatePurchaseCard("SendArcherButton", "ARCHER", Vector2.zero, Cyan, buttonCyanSprite,
+                archerProfileSprite, out archerButton, out archerLabel);
+            CreatePurchaseCard("SendWizardButton", "WIZARD", Vector2.zero, Cyan, buttonCyanSprite,
+                wizardProfileSprite, out wizardButton, out wizardLabel);
+            knightButton.onClick.AddListener(() => { if (sender) sender.TrySend(UnitArchetype.HolyKnight); });
+            archerButton.onClick.AddListener(() => { if (sender) sender.TrySend(UnitArchetype.GreenArcher); });
+            wizardButton.onClick.AddListener(() => { if (sender) sender.TrySend(UnitArchetype.BlueWizard); });
+        }
+        SelectUnitTier(UnitTier.Starter);
 
-        CreateButton("UnitsToggle", safeRoot, "UNITS", new Vector2(24f, 24f),
-            new Vector2(128f, 128f), true, Cyan, out unitsToggle, out _);
-        CreateButton("ItemsToggle", safeRoot, "ITEMS", new Vector2(172f, 31f),
-            new Vector2(102f, 102f), true, Blue, out itemsToggle, out _);
+        CreateButton("UnitsToggle", bottomLeftRoot, "UNITS", new Vector2(24f, 24f),
+            new Vector2(124f, 124f), true, Cyan, out unitsToggle, out _);
+        CreateButton("ItemsToggle", bottomLeftRoot, "ITEMS", new Vector2(164f, 24f),
+            new Vector2(124f, 124f), true, Blue, out itemsToggle, out _);
         unitsToggleSelected = CreateSelectedButtonLayer(unitsToggle.transform);
         itemsToggleSelected = CreateSelectedButtonLayer(itemsToggle.transform);
         unitsToggle.onClick.AddListener(ToggleUnitsPanel);
     }
 
-    void CreatePurchaseCard(string objectName, string emblem, string unitName, Vector2 position,
-        Color accent, Sprite accentSprite,
+    void SelectUnitTier(UnitTier tier)
+    {
+        selectedUnitTier = tier;
+        for (int i = 0; i < tierFrames.Length; i++)
+            if (tierFrames[i]) tierFrames[i].Configure(
+                i == (int)tier ? new Color(.06f, .17f, .25f, .98f) : ControlNavy,
+                i == (int)tier ? Gold : new Color(.25f, .55f, .7f, .75f), 8f, 2f);
+        foreach (UnitPurchaseEntry entry in purchaseEntries)
+            if (entry.button) entry.button.gameObject.SetActive(entry.definition.tier == tier);
+        if (purchaseEntries.Count == 0)
+        {
+            if (knightButton) knightButton.gameObject.SetActive(tier == UnitTier.Starter);
+            if (archerButton) archerButton.gameObject.SetActive(tier == UnitTier.Starter);
+            if (wizardButton) wizardButton.gameObject.SetActive(tier == UnitTier.Starter);
+        }
+        LayoutTierPurchaseCards(lastBottomLayoutScale > 0f ? lastBottomLayoutScale : 1f);
+    }
+
+    float lastBottomLayoutScale = 1f;
+
+    void LayoutTierPurchaseCards(float scale)
+    {
+        if (!unitsPanel) return;
+        lastBottomLayoutScale = scale;
+        RectTransform frame = unitsPanel.transform.Find("TierMenuFrame") as RectTransform;
+        if (frame) LayoutCenteredChild(frame, Vector2.zero, new Vector2(610f, 265f), scale);
+        for (int i = 0; i < tierFrames.Length; i++)
+        {
+            RectTransform tab = tierFrames[i] ? tierFrames[i].transform.parent as RectTransform : null;
+            if (!tab) continue;
+            tab.anchoredPosition = new Vector2(78f + i * 151f, 226f) * scale;
+            tab.sizeDelta = new Vector2(137f, 38f) * scale;
+            LayoutCenteredChild(tierFrames[i].rectTransform, Vector2.zero, new Vector2(137f, 38f), scale);
+            RectTransform label = tab.Find("Label") as RectTransform;
+            LayoutCenteredChild(label, Vector2.zero, new Vector2(125f, 28f), scale);
+            SetScaledFont(label, 14, scale);
+        }
+        int count = 0;
+        if (purchaseEntries.Count == 0)
+        {
+            Button[] starters = { knightButton, archerButton, wizardButton };
+            for (int i = 0; i < starters.Length; i++)
+            {
+                if (!starters[i]) continue;
+                RectTransform card = starters[i].GetComponent<RectTransform>();
+                card.anchorMin = card.anchorMax = card.pivot = Vector2.zero;
+                card.anchoredPosition = new Vector2(104f + i * 151f, 66f) * scale;
+                card.localScale = Vector3.one * scale;
+            }
+            return;
+        }
+        foreach (UnitPurchaseEntry entry in purchaseEntries) if (entry.definition.tier == selectedUnitTier) count++;
+        if (count == 0) return;
+        float pitch = count == 5 ? 108f : count == 4 ? 128f : 151f;
+        float left = (610f - (count - 1) * pitch - 100f) * .5f;
+        int index = 0;
+        foreach (UnitPurchaseEntry entry in purchaseEntries)
+        {
+            if (entry.definition.tier != selectedUnitTier || !entry.button) continue;
+            RectTransform card = entry.button.GetComponent<RectTransform>();
+            card.anchorMin = card.anchorMax = card.pivot = Vector2.zero;
+            card.anchoredPosition = new Vector2(left + index * pitch, 66f) * scale;
+            card.localScale = Vector3.one * scale;
+            index++;
+        }
+    }
+
+    RectTransform CreateBottomLayoutRoot(string objectName)
+    {
+        GameObject rootObject = new GameObject(objectName, typeof(RectTransform));
+        rootObject.transform.SetParent(safeRoot, false);
+        RectTransform root = rootObject.GetComponent<RectTransform>();
+        root.anchorMin = Vector2.zero;
+        root.anchorMax = Vector2.one;
+        root.pivot = new Vector2(.5f, .5f);
+        root.offsetMin = Vector2.zero;
+        root.offsetMax = Vector2.zero;
+        root.localScale = Vector3.one;
+        return root;
+    }
+
+    void CreatePurchaseCard(string objectName, string unitName, Vector2 position,
+        Color accent, Sprite accentSprite, Sprite profileSprite,
         out Button button, out Text purchaseLabel)
     {
         GameObject card = new GameObject(objectName, typeof(RectTransform), typeof(Image), typeof(Button), typeof(Outline));
@@ -626,82 +858,179 @@ public sealed class GameplayHud : MonoBehaviour
         rect.anchorMin = rect.anchorMax = Vector2.zero;
         rect.pivot = Vector2.zero;
         rect.anchoredPosition = position;
-        rect.sizeDelta = new Vector2(96f, 96f);
+        rect.sizeDelta = new Vector2(100f, 100f);
         Image background = card.GetComponent<Image>();
-        background.sprite = accentSprite ? accentSprite : circleSprite;
-        background.color = background.sprite ? Color.white : ControlNavy;
+        Sprite premiumPurchaseFrame = hudSkin ? hudSkin.abilityFrame : null;
+        background.sprite = premiumPurchaseFrame ? circleSprite :
+            (accentSprite ? accentSprite : circleSprite);
+        background.color = premiumPurchaseFrame ? Color.white :
+            (background.sprite ? Color.white : ControlNavy);
         background.raycastTarget = true;
         button = card.GetComponent<Button>();
         button.targetGraphic = background;
-        button.transition = Selectable.Transition.ColorTint;
-        SetButtonColors(button, accent);
+        // Purchase availability is styled explicitly below. Unity's disabled ColorTint
+        // otherwise compounds the portrait treatment and makes affordable units look muddy.
+        button.transition = Selectable.Transition.None;
         MobileButtonPressFeedback pressFeedback = card.AddComponent<MobileButtonPressFeedback>();
         pressFeedback.Configure(button);
         Outline outline = card.GetComponent<Outline>();
-        outline.effectColor = new Color(accent.r, accent.g, accent.b, .82f);
-        outline.effectDistance = new Vector2(2f, 2f);
+        outline.effectColor = new Color(.28f, .78f, 1f, .42f);
+        outline.effectDistance = Vector2.one;
         AddShadow(background, new Color(0f, .01f, .025f, .64f), new Vector2(0f, -3f));
         Image interior = CreateImage("DarkInterior", card.transform, circleSprite,
-            Vector2.zero, new Vector2(82f, 82f), Color.Lerp(ControlNavy, accent, .08f), false);
+            Vector2.zero, new Vector2(86f, 86f), Color.Lerp(ControlNavy, accent, .055f), false);
         interior.preserveAspect = true;
-        Image frame = CreateImage("FantasyFrame", card.transform, ornateButtonFrameSprite,
-            Vector2.zero, new Vector2(104f, 104f), new Color(accent.r, accent.g, accent.b, .92f), false);
-        frame.preserveAspect = true;
-        Text crest = CreateText("UnitEmblem", card.transform, emblem, new Vector2(0f, 16f),
-            new Vector2(44f, 40f), 28, TextAnchor.MiddleCenter,
-            Color.Lerp(Color.white, accent, .32f), false);
-        AddTextShadow(crest);
-        purchaseLabel = CreateText("UnitAndCost", card.transform, unitName + "\n1 GOLD",
-            new Vector2(0f, -29f), new Vector2(90f, 38f), 12, TextAnchor.MiddleCenter, Color.white, false);
+        if (hudSkin) interior.gameObject.SetActive(false);
+
+        // FantasyButton1 has an opaque navy center. Keep it behind the portrait;
+        // placing it later in the hierarchy darkens even affordable portraits.
+        Image frame = null;
+        if (premiumPurchaseFrame || !hudSkin)
+        {
+            frame = CreateImage("FantasyFrame", card.transform,
+                premiumPurchaseFrame ? premiumPurchaseFrame : ornateButtonFrameSprite,
+                Vector2.zero, new Vector2(106f, 106f),
+                premiumPurchaseFrame ? Color.white : new Color(accent.r, accent.g, accent.b, .86f), false);
+            frame.preserveAspect = true;
+        }
+        ArcaneRingGraphic ring = premiumPurchaseFrame ? null : CreateArcaneRing("PurchaseRing", card.transform,
+            new Vector2(102f, 102f), new Color(.08f, .38f, .62f, .94f), Color.clear,
+            hudSkin ? 0 : 4);
+
+        GameObject portraitMaskObject = new GameObject("PortraitMask", typeof(RectTransform),
+            typeof(Image), typeof(Mask));
+        portraitMaskObject.transform.SetParent(card.transform, false);
+        RectTransform portraitMask = portraitMaskObject.GetComponent<RectTransform>();
+        portraitMask.anchorMin = portraitMask.anchorMax = new Vector2(.5f, .5f);
+        portraitMask.pivot = new Vector2(.5f, .5f);
+        portraitMask.anchoredPosition = new Vector2(0f, 12f);
+        portraitMask.sizeDelta = new Vector2(64f, 64f);
+        portraitMask.localScale = Vector3.one;
+        Image maskImage = portraitMaskObject.GetComponent<Image>();
+        maskImage.sprite = circleSprite;
+        maskImage.color = Color.white;
+        maskImage.raycastTarget = false;
+        portraitMaskObject.GetComponent<Mask>().showMaskGraphic = false;
+        float portraitAspect = profileSprite && profileSprite.rect.height > 0f
+            ? profileSprite.rect.width / profileSprite.rect.height : 1f;
+        Vector2 portraitSize = new Vector2(70f * Mathf.Max(1f, portraitAspect),
+            70f * Mathf.Max(1f, 1f / portraitAspect));
+        Image portrait = CreateImage("UnitPortrait", portraitMask, profileSprite,
+            Vector2.zero, portraitSize, Color.white, false);
+        portrait.preserveAspect = false;
+        Image unavailableOverlay = CreateSolidImage("UnaffordableOverlay", portraitMask,
+            Vector2.zero, new Vector2(64f, 64f), new Color(.015f, .035f, .075f, 0f));
+        unavailableOverlay.raycastTarget = false;
+        if (ring) ring.transform.SetAsLastSibling();
+        // The premium frame has an opaque navy center. It must remain behind the
+        // circular portrait; its outer metal rim is still visible around the mask.
+        Text unitLabel = CreateText("UnitName", card.transform, unitName,
+            new Vector2(0f, -26f), new Vector2(92f, 14f), unitName.Length > 15 ? 8 : unitName.Length > 11 ? 9 : 10,
+            TextAnchor.MiddleCenter, Color.white, false);
+        AddTextShadow(unitLabel);
+        Image costBadge = CreateImage("CostBadge", card.transform, capsuleSprite,
+            new Vector2(0f, -40f), new Vector2(84f, 18f),
+            new Color(.018f, .045f, .08f, .96f), false);
+        SetImageType(costBadge, true);
+        costBadge.preserveAspect = false;
+        Outline costRim = costBadge.gameObject.AddComponent<Outline>();
+        costRim.effectColor = new Color(.9f, .67f, .25f, .72f);
+        costRim.effectDistance = Vector2.one;
+        purchaseLabel = CreateText("UnitAndCost", card.transform, PurchaseLabel(unitName, 1),
+            new Vector2(0f, -40f), new Vector2(88f, 18f), 13,
+            TextAnchor.MiddleCenter, new Color(1f, .9f, .52f, 1f), false);
+        purchaseLabel.fontStyle = FontStyle.Bold;
         AddTextShadow(purchaseLabel);
     }
 
     Image CreateSelectedButtonLayer(Transform buttonRoot)
     {
-        Image glow = CreateImage("SelectedGlow", buttonRoot, buttonGreenSprite ? buttonGreenSprite : circleSprite,
-            Vector2.zero, ((RectTransform)buttonRoot).sizeDelta * 1.14f,
-            new Color(.35f, .9f, 1f, 0f), false);
-        glow.preserveAspect = true;
-        glow.transform.SetAsFirstSibling();
-        return glow;
+        // The supplied Units/Items PNG already includes its complete rim, icon,
+        // and label. A second sprite, even behind it, doubles the frame when open.
+        return null;
     }
 
     void BuildItemsPanel()
     {
-        itemsPanel = CreatePanel("ItemsPanel", safeRoot, new Vector2(172f, 150f),
+        if (!potionItem) potionItem = GetComponent<HealingPotionItem>() ?? gameObject.AddComponent<HealingPotionItem>();
+        itemsPanel = CreatePanel("ItemsPanel", bottomLeftRoot, new Vector2(172f, 150f),
             new Vector2(230f, 98f), TextAnchor.LowerLeft);
         Image icon = CreateImage("ItemsPanelIcon", itemsPanel.transform, itemsIconSprite,
-            new Vector2(-72f, 3f), new Vector2(38f, 38f), Color.white, false);
+            new Vector2(30f, 75f), new Vector2(30f, 30f), Color.white, false);
         icon.preserveAspect = true;
-        CreateText("ItemsPanelTitle", itemsPanel.transform, "ITEMS", new Vector2(26f, 18f),
-            new Vector2(138f, 24f), 15, TextAnchor.MiddleLeft, new Color(.65f, .9f, 1f), false);
-        CreateText("ComingSoon", itemsPanel.transform, "COMING SOON", new Vector2(26f, -12f),
-            new Vector2(162f, 22f), 12, TextAnchor.MiddleLeft, Color.white, false);
+        CreateText("ItemsPanelTitle", itemsPanel.transform, "ITEMS", new Vector2(58f, 63f),
+            new Vector2(150f, 24f), 15, TextAnchor.MiddleLeft, new Color(.65f, .9f, 1f), false);
+        CreateButton("HealingPotionButton", itemsPanel.transform, "POTION  10 GOLD",
+            new Vector2(16f, 9f), new Vector2(198f, 44f), false, Cyan,
+            out potionButton, out potionLabel);
+        potionLabel.fontSize = 16;
+        potionLabel.fontStyle = FontStyle.Bold;
+        potionLabel.rectTransform.anchoredPosition = new Vector2(0f, 6f);
+        potionLabel.rectTransform.sizeDelta = new Vector2(190f, 25f);
+        potionCooldownLabel = CreateText("PotionStatus", potionButton.transform, "HEAL 75 HP",
+            new Vector2(0f, -12f), new Vector2(188f, 16f), 10,
+            TextAnchor.MiddleCenter, new Color(.68f, .9f, 1f), false);
+        potionButton.onClick.AddListener(() => { if (potionItem) potionItem.TryUse(); UpdatePotionButton(); });
         itemsPanel.SetActive(false);
         itemsToggle.onClick.AddListener(ToggleItemsPanel);
     }
 
+    void UpdatePotionButton()
+    {
+        if (!potionButton) return;
+        if (!potionItem) potionItem = GetComponent<HealingPotionItem>();
+        potionButton.interactable = potionItem && potionItem.CanUse;
+        if (!potionLabel || !potionItem) return;
+        int seconds = Mathf.CeilToInt(potionItem.CooldownRemaining);
+        potionLabel.text = $"POTION  {potionItem.cost} GOLD";
+        potionLabel.color = potionButton.interactable ? Color.white : new Color(.75f, .83f, .9f, 1f);
+        if (potionCooldownLabel)
+            potionCooldownLabel.text = seconds > 0 ? $"READY IN {seconds}s" : $"HEAL {potionItem.healing} HP";
+    }
+
     void BuildAbilityControls()
     {
-        float primarySize = autoAttackButtonSize;
-        float slotSize = abilitySlotSize;
-        float clusterBottom = safeAreaPadding + 58f;
-        CreateButton("AutoAttackButton", safeRoot, "AA",
+        bottomRightRoot = CreateBottomLayoutRoot("BottomRightRoot");
+        EnsureAbilityReferenceArrays();
+        const float primarySize = 148f;
+        const float slotSize = 108f;
+        abilitySlotSize = slotSize;
+        float clusterBottom = safeAreaPadding + 140f;
+        CreateButton("AutoAttackButton", bottomRightRoot, "AA",
             new Vector2(-safeAreaPadding, clusterBottom), new Vector2(primarySize, primarySize),
             true, Gold, out autoAttackButton, out _, true);
+        Text aaLabel = autoAttackButton.transform.Find("Label")?.GetComponent<Text>();
+        if (aaLabel)
+        {
+            aaLabel.fontSize = 27;
+            aaLabel.rectTransform.anchoredPosition = new Vector2(0f, 8f);
+            aaLabel.rectTransform.sizeDelta = new Vector2(primarySize - 16f, 42f);
+        }
+        if (!HasCompleteButtonArtwork("AutoAttackButton"))
+        {
+            Text aaCaption = CreateText("AutoAttackCaption", autoAttackButton.transform, "AUTO ATTACK",
+                new Vector2(0f, -31f), new Vector2(primarySize - 18f, 20f), 10,
+                TextAnchor.MiddleCenter, new Color(1f, .86f, .58f, .95f), false);
+            AddTextShadow(aaCaption);
+        }
         autoAttackButton.onClick.AddListener(TriggerAutoAttack);
 
-        // Four compact abilities follow a right-thumb arc above and to the left
-        // of the large primary attack button.
-        fireballView = AbilityButtonView.Create(safeRoot, "FireballButton",
+        // Ability controls follow a spacious right-thumb arc. The fourth future
+        // slot remains available without colliding with the active controls.
+        fireballView = AbilityButtonView.Create(bottomRightRoot, "FireballButton",
             new Vector2(slotSize, slotSize),
             new Vector2(-safeAreaPadding - primarySize - 16f, clusterBottom + 4f), true,
-            fireballFrameOverride ? fireballFrameOverride : ornateButtonFrameSprite,
+            hudSkin && hudSkin.abilityFrame ? hudSkin.abilityFrame :
+                (fireballFrameOverride ? fireballFrameOverride : ornateButtonFrameSprite),
             fireballBackgroundOverride ? fireballBackgroundOverride : circleSprite,
             fireballIconOverride, buttonCyanSprite);
         fireballView.SetLayerScales(fireballFrameScale, fireballBackgroundScale, fireballIconScale);
+        if (hudSkin && hudSkin.abilityFrame) fireballView.UseCleanMobileRing();
+        else fireballView.SetDecorativeRingVisible(true);
+        if (hudSkin) fireballView.SetStateSprites(hudSkin.selectedOverlay, hudSkin.pressedOverlay,
+            hudSkin.disabledOverlay, hudSkin.cooldownOverlay);
         fireballButton = fireballView.Button;
-        fireballView.SetLabel("FIREBALL");
+        fireballView.SetLabel(string.Empty);
         MobileButtonPressFeedback fireballPress = fireballButton.gameObject.AddComponent<MobileButtonPressFeedback>();
         fireballPress.Configure(fireballButton);
         fireballButton.onClick.AddListener(ToggleFireballTargeting);
@@ -710,6 +1039,28 @@ public sealed class GameplayHud : MonoBehaviour
         CreatePlaceholderAbility("AbilitySlot2",
             new Vector2(-safeAreaPadding - primarySize - 4f, clusterBottom + 94f),
             2, out futureAbilitySlots[0], out futureAbilityLabels[0]);
+        geomancerSecondaryButton = futureAbilitySlots[0].GetComponent<Button>();
+        geomancerSecondaryButton.onClick.AddListener(TriggerEarthSpikes);
+        GameObject earthGlyphObject = new GameObject("EarthSpikesGlyph", typeof(RectTransform),
+            typeof(CanvasRenderer), typeof(AbilityButtonGlyph));
+        earthGlyphObject.transform.SetParent(geomancerSecondaryButton.transform, false);
+        RectTransform earthGlyphRect = earthGlyphObject.GetComponent<RectTransform>();
+        earthGlyphRect.anchorMin = earthGlyphRect.anchorMax = new Vector2(.5f, .5f);
+        earthGlyphRect.pivot = new Vector2(.5f, .5f);
+        earthGlyphRect.anchoredPosition = Vector2.zero;
+        earthGlyphRect.sizeDelta = Vector2.one * (abilitySlotSize * .58f);
+        geomancerSecondaryGlyph = earthGlyphObject.GetComponent<AbilityButtonGlyph>();
+        geomancerSecondaryGlyph.SetStyle(AbilityGlyphStyle.EarthSpikes);
+        geomancerSecondaryGlyph.raycastTarget = false;
+        geomancerSecondaryGlyph.gameObject.SetActive(false);
+        CreateGeomancerSecondaryUpgradeBadge();
+        geomancerPassiveLabel = CreateText("SeismicFuryIndicator", bottomRightRoot, "FURY 0/5",
+            new Vector2(-safeAreaPadding - primarySize - 18f, clusterBottom + 184f),
+            new Vector2(150f, 32f), 13, TextAnchor.MiddleCenter, new Color(.4f, .82f, 1f), false);
+        RectTransform passiveRect = geomancerPassiveLabel.rectTransform;
+        passiveRect.anchorMin = passiveRect.anchorMax = new Vector2(1f, 0f);
+        passiveRect.pivot = new Vector2(1f, 0f);
+        geomancerPassiveLabel.gameObject.SetActive(false);
         CreatePlaceholderAbility("AbilitySlot3",
             new Vector2(-safeAreaPadding - 58f, clusterBottom + 150f),
             4, out futureAbilitySlots[1], out futureAbilityLabels[1]);
@@ -718,27 +1069,694 @@ public sealed class GameplayHud : MonoBehaviour
             6, out futureAbilitySlots[2], out futureAbilityLabels[2]);
     }
 
-    void ResizeAbilityButton()
+    void EnsureAbilityReferenceArrays()
     {
-        if (!autoAttackButton || !safeRoot) return;
-        float height = safeRoot.rect.height;
-        float width = safeRoot.rect.width;
-        if (height < 1f || width < 1f) return;
-        float size = Mathf.Min(autoAttackButtonSize,
-            (height - safeAreaPadding - 4f) / 1.9f,
-            (width - safeAreaPadding - 4f) / 1.9f);
-        size = Mathf.Max(96f, size);
-        RectTransform rect = autoAttackButton ? autoAttackButton.GetComponent<RectTransform>() : null;
+        if (futureAbilitySlots == null || futureAbilitySlots.Length != 3)
+            futureAbilitySlots = new Image[3];
+        if (futureAbilityLabels == null || futureAbilityLabels.Length != 3)
+            futureAbilityLabels = new Text[3];
+    }
+
+    bool RebindAbilityHudReferences()
+    {
+        EnsureAbilityReferenceArrays();
+        if (!safeRoot) return false;
+
+        bottomLeftRoot = safeRoot.Find("BottomLeftRoot") as RectTransform;
+        bottomRightRoot = safeRoot.Find("BottomRightRoot") as RectTransform;
+        progressionRoot = safeRoot.Find("ProgressionRoot") as RectTransform;
+        Transform abilityParent = bottomRightRoot ? bottomRightRoot : safeRoot;
+        Transform fireballRoot = abilityParent.Find("FireballButton");
+        if (!fireballView && fireballRoot) fireballView = fireballRoot.GetComponent<AbilityButtonView>();
+        if (!fireballButton && fireballRoot) fireballButton = fireballRoot.GetComponent<Button>();
+
+        string[] slotNames = { "AbilitySlot2", "AbilitySlot3", "AbilitySlot4" };
+        for (int i = 0; i < slotNames.Length; i++)
+        {
+            Transform slotRoot = abilityParent.Find(slotNames[i]);
+            if (!slotRoot) continue;
+            if (!futureAbilitySlots[i]) futureAbilitySlots[i] = slotRoot.GetComponent<Image>();
+            if (!futureAbilityLabels[i])
+            {
+                Transform label = slotRoot.Find("EmptySlotLabel");
+                if (label) futureAbilityLabels[i] = label.GetComponent<Text>();
+            }
+        }
+
+        if (!geomancerSecondaryButton && futureAbilitySlots[0])
+            geomancerSecondaryButton = futureAbilitySlots[0].GetComponent<Button>();
+        if (!geomancerSecondaryGlyph && futureAbilitySlots[0])
+            geomancerSecondaryGlyph = futureAbilitySlots[0].GetComponentInChildren<AbilityButtonGlyph>(true);
+        if (!geomancerPassiveLabel)
+        {
+            Transform passive = abilityParent.Find("SeismicFuryIndicator");
+            if (passive) geomancerPassiveLabel = passive.GetComponent<Text>();
+        }
+
+        if (!fireballView || !fireballButton || !geomancerSecondaryButton ||
+            !geomancerSecondaryGlyph || !geomancerPassiveLabel) return false;
+        for (int i = 0; i < 3; i++)
+            if (!futureAbilitySlots[i] || !futureAbilityLabels[i]) return false;
+        return true;
+    }
+
+    Rect ValidSafeArea()
+    {
+        return HlwResponsiveCanvas.ValidSafeArea();
+    }
+
+    void ApplySafeAreaRect(Rect safe)
+    {
+        HlwResponsiveCanvas.ApplySafeArea(safeRoot, safe);
+    }
+
+    void ApplyResponsiveLayout(bool force)
+    {
+        if (!canvas || !safeRoot || Screen.width < 1 || Screen.height < 1) return;
+
+        Rect safe = ValidSafeArea();
+        if (!force && Screen.width == lastLayoutScreenWidth && Screen.height == lastLayoutScreenHeight &&
+            HlwResponsiveCanvas.Approximately(safe, lastLayoutSafeArea)) return;
+
+        ApplySafeAreaRect(safe);
+        Canvas.ForceUpdateCanvases();
+        ResolveTopHudLayout();
+
+        float shortestSide = Mathf.Min(safeRoot.rect.width, safeRoot.rect.height);
+        float edge = Mathf.Clamp(shortestSide * .022f, 16f, Mathf.Max(18f, safeAreaPadding));
+
+        float designScale = Mathf.Min(safeRoot.rect.width / HudReferenceWidth,
+            safeRoot.rect.height / HudReferenceHeight);
+        LayoutReferenceTopHud(designScale);
+
+        // Bottom controls use the approved 1129x629 artwork reference. Scaling is
+        // uniform; left and right groups remain pinned to their respective safe edges.
+        float bottomScale = designScale;
+        LayoutBottomRoot(bottomLeftRoot);
+        LayoutBottomRoot(bottomRightRoot);
+        LayoutBottomRoot(progressionRoot);
+
+        // Sizes compensate for measured alpha/glow padding in the supplied PNGs.
+        FitVisibleButton(bottomLeftRoot, "UnitsToggle", new Vector2(111f, 137f), 174f,
+            bottomScale, false, new Rect(80f, 130f, 1056f, 1013f));
+        FitVisibleButton(bottomLeftRoot, "ItemsToggle", new Vector2(296f, 137f), 174f,
+            bottomScale, false, new Rect(77f, 127f, 1062f, 1018f));
+        LayoutBottomElement(bottomLeftRoot, "UnitsFanMenu", new Vector2(322f, 352f),
+            new Vector2(610f, 265f), bottomScale, false);
+        LayoutBottomElement(bottomLeftRoot, "ItemsPanel", new Vector2(296f, 240f),
+            new Vector2(230f, 98f), bottomScale, false);
+        LayoutTierPurchaseCards(bottomScale);
+
+        FitVisibleButton(bottomRightRoot, "AutoAttackButton", new Vector2(159f, 203f), 211f,
+            bottomScale, true, new Rect(31f, 48f, 1187f, 1177f));
+        bool geomancerBottomLayout = geomancerAbilities || (abilityLoadout && abilityLoadout.IsGeomancer);
+        // Every secondary control uses one visible diameter and one radial distance.
+        // Different full PNG sizes only compensate for each sprite's transparent padding.
+        FitVisibleButton(bottomRightRoot, "FireballButton", new Vector2(322f, 154f), 95.2f,
+            bottomScale, true, geomancerBottomLayout
+                ? new Rect(0f, 0f, 1254f, 1254f)
+                : new Rect(106f, 126f, 1034f, 1019f));
+        FitVisibleButton(bottomRightRoot, "AbilitySlot2", new Vector2(325f, 263f), 95.2f,
+            bottomScale, true, new Rect(150f, 118f, 951f, 1013f));
+        FitVisibleButton(bottomRightRoot, "AbilitySlot3", new Vector2(252f, 346f), 95.2f,
+            bottomScale, true, new Rect(150f, 118f, 951f, 1013f));
+        FitVisibleButton(bottomRightRoot, "AbilitySlot4", new Vector2(131f, 388f), 95.2f,
+            bottomScale, true, new Rect(150f, 118f, 951f, 1013f));
+        LayoutBottomElement(bottomRightRoot, "SeismicFuryIndicator", new Vector2(430f, 410f),
+            new Vector2(170f, 30f), bottomScale, true);
+
+        // Stats is rectangular. Do not route it through the square authored-size path;
+        // that previously changed its 144x64 touch target into 144x144 and pushed it
+        // below the safe area after responsive scaling.
+        FitVisibleRect(progressionRoot, "StatsToggleButton", new Vector2(574f, 77f),
+            new Vector2(216f, 79f), bottomScale, true,
+            new Rect(77f, 147f, 1611f, 595f));
+        LayoutBottomElement(progressionRoot, "HeroProgressionPanel", new Vector2(245f, 76f),
+            new Vector2(413f, 138f), bottomScale, true);
+        LayoutProgressionContents(bottomScale);
+        LayoutResultPanel(designScale);
+        SetDirectRect("HeroStatsPanel", new Vector2(1f, 0f), new Vector2(1f, 0f),
+            new Vector2(-edge - 470f, edge + 108f));
+
+        Canvas.ForceUpdateCanvases();
+        lastLayoutScreenWidth = Screen.width;
+        lastLayoutScreenHeight = Screen.height;
+        lastLayoutSafeArea = safe;
+        lastGeomancerBottomLayout = geomancerBottomLayout;
+    }
+
+    void LayoutReferenceTopHud(float scale)
+    {
+        RectTransform topHud = FindNewestDirectRect("TopHudRoot");
+        if (topHud)
+        {
+            topHud.anchorMin = Vector2.zero;
+            topHud.anchorMax = Vector2.one;
+            topHud.pivot = new Vector2(.5f, .5f);
+            topHud.offsetMin = Vector2.zero;
+            topHud.offsetMax = Vector2.zero;
+            topHud.localScale = Vector3.one;
+
+            // Coordinates are the measured 1672x941 visible-art reference.
+            LayoutTopReferencePanel(topHud.Find("EconomyPanel") as RectTransform,
+                new Vector2(-10.5f, 52f), new Vector2(743f, 78f), scale, false,
+                new Vector2(755.6f, 98f), new Vector2(0f, 3f));
+            float safeWidth = safeRoot.rect.width / scale;
+            // Preserve Economy's centered position and a 10-unit gap to each
+            // neighbouring panel. Wider phones get the full 11% extension.
+            float availableBaseWidth = Mathf.Max(0f, safeWidth * .5f - 361f - 25f);
+            float baseWidthFactor = Mathf.Min(1f, availableBaseWidth / (254f + 242f));
+            float redWidth = 254f * baseWidthFactor;
+            float blueWidth = 242f * baseWidthFactor;
+            float blueCenterFromRight = 5f + blueWidth * .5f;
+            float redCenterFromRight = 5f + blueWidth + 10f + redWidth * .5f;
+            LayoutTopReferencePanel(topHud.Find("RedBasePanel") as RectTransform,
+                new Vector2(redCenterFromRight, 54f), new Vector2(redWidth, 74f), scale, true,
+                new Vector2(redWidth * 230.5f / 228f, 85.6f), Vector2.zero);
+            LayoutTopReferencePanel(topHud.Find("BlueBasePanel") as RectTransform,
+                new Vector2(blueCenterFromRight, 54f), new Vector2(blueWidth, 74f), scale, true,
+                new Vector2(blueWidth * 219.6f / 217f, 85.8f), Vector2.zero);
+            LayoutTopReferenceContent(topHud, scale);
+        }
+
+        LayoutTopLeftReferenceElement("SchematicMinimap", new Rect(15f, 18f, 291f, 183f), scale);
+        LayoutTopLeftReferenceElement("GameSpeedToggle", new Rect(316f, 23f, 86f, 68f), scale);
+        LayoutTopLeftReferenceElement("PlayerHeroFocusCard", new Rect(12f, 209f, 295f, 64f), scale);
+        LayoutTopLeftReferenceElement("EnemyHeroFocusCard", new Rect(12f, 282f, 295f, 64f), scale);
+        LayoutHeroFocusCardContents("PlayerHeroFocusCard", new Vector2(295f, 64f), scale);
+        LayoutHeroFocusCardContents("EnemyHeroFocusCard", new Vector2(295f, 64f), scale);
+        LayoutSpeedContents(scale);
+    }
+
+    static void LayoutTopReferencePanel(RectTransform panel, Vector2 centerFromAnchor,
+        Vector2 visibleSize, float scale, bool fromRight, Vector2 artworkSize, Vector2 artworkOffset)
+    {
+        if (!panel) return;
+        panel.anchorMin = panel.anchorMax = new Vector2(fromRight ? 1f : .5f, 1f);
+        panel.pivot = new Vector2(.5f, .5f);
+        panel.anchoredPosition = new Vector2((fromRight ? -1f : 1f) * centerFromAnchor.x * scale,
+            -centerFromAnchor.y * scale);
+        panel.sizeDelta = visibleSize * scale;
+        panel.localScale = Vector3.one;
+        RectTransform artwork = panel.Find("Artwork") as RectTransform;
+        if (artwork)
+        {
+            artwork.anchorMin = artwork.anchorMax = artwork.pivot = new Vector2(.5f, .5f);
+            artwork.anchoredPosition = artworkOffset * scale;
+            artwork.sizeDelta = artworkSize * scale;
+            artwork.localScale = Vector3.one;
+        }
+        RectTransform content = panel.Find("Content") as RectTransform;
+        if (content)
+        {
+            content.anchorMin = Vector2.zero;
+            content.anchorMax = Vector2.one;
+            content.offsetMin = Vector2.zero;
+            content.offsetMax = Vector2.zero;
+            content.localScale = Vector3.one;
+        }
+    }
+
+    void LayoutTopReferenceContent(RectTransform topHud, float scale)
+    {
+        RectTransform economy = topHud.Find("EconomyPanel") as RectTransform;
+        RectTransform interior = economy ? economy.Find("Content/Interior") as RectTransform : null;
+        if (interior)
+        {
+            interior.anchorMin = Vector2.zero;
+            interior.anchorMax = Vector2.one;
+            interior.offsetMin = Vector2.zero;
+            interior.offsetMax = Vector2.zero;
+            float[] textX = { -184.5f, 27.5f, 227.5f };
+            string[] names = { "GoldCell", "IncomeCell", "NextCell" };
+            for (int i = 0; i < names.Length; i++)
+            {
+                RectTransform cell = interior.Find(names[i]) as RectTransform;
+                if (!cell) continue;
+                cell.anchorMin = cell.anchorMax = cell.pivot = new Vector2(.5f, .5f);
+                cell.anchoredPosition = new Vector2(textX[i], 0f) * scale;
+                cell.sizeDelta = new Vector2(190f, 78f) * scale;
+                LayoutTopStatCellContent(cell, scale);
+            }
+        }
+        LayoutBaseReferenceContent(topHud.Find("RedBasePanel") as RectTransform, scale);
+        LayoutBaseReferenceContent(topHud.Find("BlueBasePanel") as RectTransform, scale);
+    }
+
+    static void LayoutTopStatCellContent(RectTransform cell, float scale)
+    {
+        RectTransform icon = cell.Find("Icon") as RectTransform;
+        RectTransform iconWell = cell.Find("IconWell") as RectTransform;
+        RectTransform caption = cell.Find("Caption") as RectTransform;
+        RectTransform value = cell.Find("Value") as RectTransform;
+        LayoutCenteredChild(icon ? icon : iconWell, new Vector2(-75f, -1f), new Vector2(40f, 40f), scale);
+        LayoutCenteredChild(caption, new Vector2(0f, 12f), new Vector2(118f, 22f), scale);
+        LayoutCenteredChild(value, new Vector2(0f, -14f), new Vector2(128f, 28f), scale);
+        SetScaledFont(caption, 18, scale);
+        SetScaledFont(value, 23, scale);
+        LayoutClockChild(cell.Find("ClockMinuteHand") as RectTransform,
+            new Vector2(-75f, 3f), new Vector2(2.5f, 12f), scale);
+        LayoutClockChild(cell.Find("ClockHourHand") as RectTransform,
+            new Vector2(-71f, -1f), new Vector2(9f, 2.5f), scale);
+        LayoutClockChild(cell.Find("ClockHub") as RectTransform,
+            new Vector2(-75f, -1f), new Vector2(4f, 4f), scale);
+    }
+
+    static void LayoutBaseReferenceContent(RectTransform panel, float scale)
+    {
+        RectTransform group = panel ? panel.Find("Content/BaseContentGroup") as RectTransform : null;
+        if (!group) return;
+        group.anchorMin = Vector2.zero;
+        group.anchorMax = Vector2.one;
+        group.offsetMin = Vector2.zero;
+        group.offsetMax = Vector2.zero;
+        const float iconX = -64f;
+        const float textX = 20f;
+        LayoutCenteredChild(group.Find("FactionIcon") as RectTransform,
+            new Vector2(iconX, -1f), new Vector2(40f, 40f), scale);
+        LayoutCenteredChild(group.Find("Caption") as RectTransform,
+            new Vector2(textX, 14f), new Vector2(140f, 22f), scale);
+        LayoutCenteredChild(group.Find("Value") as RectTransform,
+            new Vector2(textX, -12f), new Vector2(140f, 28f), scale);
+        SetScaledFont(group.Find("Caption") as RectTransform, 18, scale);
+        SetScaledFont(group.Find("Value") as RectTransform, 23, scale);
+    }
+
+    static void LayoutCenteredChild(RectTransform child, Vector2 position, Vector2 size, float scale)
+    {
+        if (!child) return;
+        child.anchorMin = child.anchorMax = child.pivot = new Vector2(.5f, .5f);
+        child.anchoredPosition = position * scale;
+        child.sizeDelta = size * scale;
+        child.localScale = Vector3.one;
+    }
+
+    static void SetScaledFont(RectTransform rect, int referenceSize, float scale)
+    {
+        Text text = rect ? rect.GetComponent<Text>() : null;
+        if (text) text.fontSize = Mathf.Max(1, Mathf.RoundToInt(referenceSize * scale));
+    }
+
+    static void LayoutClockChild(RectTransform child, Vector2 position, Vector2 size, float scale)
+    {
+        if (!child) return;
+        child.anchoredPosition = position * scale;
+        child.sizeDelta = size * scale;
+    }
+
+    void LayoutTopLeftReferenceElement(string objectName, Rect reference, float scale)
+    {
+        RectTransform rect = FindNewestDirectRect(objectName);
         if (!rect) return;
-        if (Mathf.Abs(rect.sizeDelta.x - size) < .5f) return;
-        rect.sizeDelta = new Vector2(size, size);
+        rect.anchorMin = rect.anchorMax = rect.pivot = new Vector2(0f, 1f);
+        rect.anchoredPosition = new Vector2(reference.x * scale, -reference.y * scale);
+        rect.sizeDelta = new Vector2(reference.width, reference.height) * scale;
+        rect.localScale = Vector3.one;
+    }
+
+    void LayoutHeroFocusCardContents(string objectName, Vector2 referenceSize, float scale)
+    {
+        RectTransform card = FindNewestDirectRect(objectName);
+        if (!card) return;
+        LayoutCenteredChild(card.Find("HeroLevel") as RectTransform,
+            new Vector2(-112f, 0f), new Vector2(52f, 38f), scale);
+        LayoutCenteredChild(card.Find("PortraitWell") as RectTransform,
+            new Vector2(-62f, 0f), new Vector2(44f, 44f), scale);
+        LayoutCenteredChild(card.Find("HeroPortrait") as RectTransform,
+            new Vector2(-62f, 0f), new Vector2(40f, 40f), scale);
+        LayoutCenteredChild(card.Find("CardTitle") as RectTransform,
+            new Vector2(43f, 8f), new Vector2(146f, 20f), scale);
+        LayoutCenteredChild(card.Find("HeroName") as RectTransform,
+            new Vector2(43f, -12f), new Vector2(146f, 18f), scale);
+        SetScaledFont(card.Find("HeroLevel") as RectTransform, 16, scale);
+        SetScaledFont(card.Find("CardTitle") as RectTransform, 12, scale);
+        SetScaledFont(card.Find("HeroName") as RectTransform, 10, scale);
+        RectTransform glow = card.Find("SelectedGlow") as RectTransform;
+        if (glow) LayoutCenteredChild(glow, Vector2.zero, referenceSize + new Vector2(4f, 4f), scale);
+        RectTransform metal = card.Find("MetallicCardFrame") as RectTransform;
+        if (metal) LayoutCenteredChild(metal, Vector2.zero, referenceSize, scale);
+    }
+
+    void LayoutSpeedContents(float scale)
+    {
+        RectTransform speed = FindNewestDirectRect("GameSpeedToggle");
+        if (!speed) return;
+        LayoutCenteredChild(speed.Find("ActiveGlow") as RectTransform,
+            Vector2.zero, new Vector2(73f, 46f), scale);
+        RectTransform label = speed.Find("SpeedLabel") as RectTransform;
+        RectTransform timer = speed.Find("MatchTime") as RectTransform;
+        LayoutCenteredChild(label, new Vector2(0f, 7f), new Vector2(61f, 18f), scale);
+        LayoutCenteredChild(timer, new Vector2(0f, -10f), new Vector2(61f, 14f), scale);
+        SetScaledFont(label, 16, scale);
+        SetScaledFont(timer, 9, scale);
+    }
+
+    static void LayoutBottomRoot(RectTransform root)
+    {
+        if (!root) return;
+        root.anchorMin = Vector2.zero;
+        root.anchorMax = Vector2.one;
+        root.pivot = new Vector2(.5f, .5f);
+        root.offsetMin = Vector2.zero;
+        root.offsetMax = Vector2.zero;
+        root.localScale = Vector3.one;
+    }
+
+    static void LayoutBottomElement(RectTransform root, string objectName, Vector2 centerFromEdge,
+        Vector2 fullArtworkSize, float scale, bool fromRight, float authoredSquareSize = 0f)
+    {
+        if (!root) return;
+        RectTransform rect = root.Find(objectName) as RectTransform;
+        if (!rect) return;
+        rect.anchorMin = rect.anchorMax = new Vector2(fromRight ? 1f : 0f, 0f);
+        rect.pivot = new Vector2(.5f, .5f);
+        rect.anchoredPosition = new Vector2((fromRight ? -1f : 1f) * centerFromEdge.x * scale,
+            centerFromEdge.y * scale);
+        if (authoredSquareSize > 0f)
+        {
+            rect.sizeDelta = Vector2.one * authoredSquareSize;
+            float artworkScale = fullArtworkSize.x / authoredSquareSize * scale;
+            rect.localScale = Vector3.one * artworkScale;
+        }
+        else
+        {
+            rect.sizeDelta = fullArtworkSize * scale;
+            rect.localScale = Vector3.one;
+        }
+    }
+
+    // Alpha bounds are measured from the supplied PNGs at alpha > 16/255.
+    // Keeping the button RectTransform larger than the visible art retains a generous touch target.
+    static void FitVisibleButton(RectTransform root, string objectName, Vector2 centerFromEdge,
+        float visibleDiameter, float scale, bool fromRight, Rect alphaPixels)
+    {
+        if (!root) return;
+        RectTransform rect = root.Find(objectName) as RectTransform;
+        if (!rect) return;
+        const float spritePixels = 1254f;
+        // Geometric mean shares small asymmetries in the source glow between X/Y,
+        // keeping both visible dimensions within the reference tolerance.
+        float fullDiameter = visibleDiameter * spritePixels /
+            Mathf.Sqrt(alphaPixels.width * alphaPixels.height);
+        float normalizedCenterX = (alphaPixels.center.x / spritePixels - .5f) * fullDiameter;
+        float normalizedCenterY = (.5f - alphaPixels.center.y / spritePixels) * fullDiameter;
+        Vector2 rootCenter = centerFromEdge - new Vector2(fromRight ? -normalizedCenterX : normalizedCenterX,
+            normalizedCenterY);
+        float authoredSize = rect.sizeDelta.x;
+        LayoutBottomElement(root, objectName, rootCenter, Vector2.one * fullDiameter,
+            scale, fromRight, authoredSize);
+    }
+
+    static void FitVisibleRect(RectTransform root, string objectName, Vector2 centerFromEdge,
+        Vector2 visibleSize, float scale, bool fromRight, Rect alphaPixels)
+    {
+        if (!root) return;
+        const float sourceWidth = 1774f;
+        const float sourceHeight = 887f;
+        float fullWidth = visibleSize.x * sourceWidth / alphaPixels.width;
+        float fullHeight = fullWidth * sourceHeight / sourceWidth;
+        Vector2 artOffset = new Vector2((alphaPixels.center.x / sourceWidth - .5f) * fullWidth,
+            (.5f - alphaPixels.center.y / sourceHeight) * fullHeight);
+        Vector2 rootCenter = centerFromEdge - new Vector2(fromRight ? -artOffset.x : artOffset.x,
+            artOffset.y);
+        LayoutBottomElement(root, objectName, rootCenter, new Vector2(fullWidth, fullHeight), scale, fromRight);
+    }
+
+    void LayoutPurchaseCard(string objectName, Vector2 referenceCenter, float scale)
+    {
+        RectTransform menu = bottomLeftRoot ? bottomLeftRoot.Find("UnitsFanMenu") as RectTransform : null;
+        RectTransform card = menu ? menu.Find(objectName) as RectTransform : null;
+        if (!card) return;
+        // The menu spans x=69..469 and bottom=241 in the 1672x941 reference.
+        card.anchorMin = card.anchorMax = card.pivot = Vector2.zero;
+        card.anchoredPosition = new Vector2(referenceCenter.x - 58f - 69f,
+            referenceCenter.y - 58f - 241f) * scale;
+        card.localScale = Vector3.one * (1.16f * scale);
+    }
+
+    void LayoutProgressionContents(float scale)
+    {
+        if (!progressionRoot) return;
+        RectTransform panel = progressionRoot.Find("HeroProgressionPanel") as RectTransform;
+        if (!panel) return;
+        RectTransform level = panel.Find("LevelBadge") as RectTransform;
+        RectTransform xp = panel.Find("XPBarRoot") as RectTransform;
+        if (level)
+        {
+            level.anchorMin = level.anchorMax = level.pivot = new Vector2(.5f, .5f);
+            level.anchoredPosition = new Vector2(-153f, 0f) * scale;
+            level.sizeDelta = new Vector2(79f, 90f) * scale;
+            level.localScale = Vector3.one;
+            RectTransform levelCaption = level.Find("LevelLabelText") as RectTransform;
+            if (levelCaption)
+            {
+                levelCaption.anchoredPosition = new Vector2(0f, 28f) * scale;
+                levelCaption.sizeDelta = new Vector2(44f, 22f) * scale;
+                SetScaledFont(levelCaption, 16, scale);
+            }
+            RectTransform levelText = level.Find("LevelValueText") as RectTransform;
+            if (levelText)
+            {
+                levelText.anchoredPosition = new Vector2(0f, -5f) * scale;
+                levelText.sizeDelta = new Vector2(58f, 48f) * scale;
+                SetScaledFont(levelText, 36, scale);
+            }
+        }
+        if (xp)
+        {
+            xp.anchorMin = xp.anchorMax = xp.pivot = new Vector2(.5f, .5f);
+            xp.anchoredPosition = new Vector2(36f, -4f) * scale;
+            xp.sizeDelta = new Vector2(319f, 52f) * scale;
+            xp.localScale = Vector3.one;
+            RectTransform track = xp.Find("TrackBackground") as RectTransform;
+            RectTransform clip = xp.Find("FillClip") as RectTransform;
+            RectTransform fill = clip ? clip.Find("XPFill") as RectTransform : null;
+            RectTransform text = xp.Find("XPText") as RectTransform;
+            // Layout from the *visible painted track* of the supplied sprite, not
+            // the much larger transparent PNG/RectTransform bounds. This also
+            // corrects the previous ~9-unit vertical displacement.
+            bool customXpArtwork = hudSkin && hudSkin.progressionBarArtwork;
+            // sizeDelta is available immediately after layout; rect can still contain
+            // the previous frame's dimensions during a CanvasScaler rebuild.
+            Vector2 artworkSize = panel.sizeDelta;
+            Vector2 trackCenterInPanel = customXpArtwork
+                ? new Vector2((XpArtworkTrack.center.x - .5f) * artworkSize.x,
+                    (.5f - XpArtworkTrack.center.y) * artworkSize.y)
+                : new Vector2(30f, 0f) * scale;
+            Vector2 trackCenter = trackCenterInPanel - xp.anchoredPosition;
+            Vector2 paintedSize = customXpArtwork
+                ? new Vector2(XpArtworkTrack.width * artworkSize.x,
+                    XpArtworkTrack.height * artworkSize.y)
+                : new Vector2(244f, 18f) * scale;
+            Vector2 interiorSize = paintedSize - new Vector2(9f, 6f) * scale;
+            if (track) LayoutCenteredChild(track, trackCenter, interiorSize, 1f);
+            if (clip) LayoutCenteredChild(clip, trackCenter, interiorSize, 1f);
+            if (fill) LayoutCenteredChild(fill, Vector2.zero, interiorSize, 1f);
+            if (text)
+            {
+                // The artwork reserves the right side of the bar for the XP readout.
+                // Placing it over the narrow painted fill track made both illegible.
+                Vector2 textCenterInPanel = new Vector2((.76f - .5f) * artworkSize.x,
+                    (.5f - XpArtworkTrack.center.y) * artworkSize.y);
+                Vector2 textCenter = customXpArtwork
+                    ? textCenterInPanel - xp.anchoredPosition : trackCenter;
+                Vector2 textSize = customXpArtwork
+                    ? new Vector2(.23f * artworkSize.x, 24f * scale)
+                    : new Vector2(interiorSize.x - 20f * scale, 24f * scale);
+                LayoutCenteredChild(text, textCenter, textSize, 1f);
+                SetScaledFont(text, 13, scale);
+            }
+        }
+    }
+
+    void SetAbilityOnArc(string objectName, Vector2 center, float radius, float degrees,
+        float visibleSize, float authoredSize)
+    {
+        float radians = degrees * Mathf.Deg2Rad;
+        Vector2 buttonCenter = center + new Vector2(Mathf.Cos(radians), Mathf.Sin(radians)) * radius;
+        Vector2 anchoredPosition = buttonCenter + new Vector2(visibleSize * .5f, -visibleSize * .5f);
+        SetDirectRect(objectName, new Vector2(1f, 0f), new Vector2(1f, 0f),
+            anchoredPosition, new Vector2(visibleSize, visibleSize));
+        RectTransform root = FindNewestDirectRect(objectName);
+        if (!root) return;
+        float contentScale = visibleSize / Mathf.Max(1f, authoredSize);
+        for (int i = 0; i < root.childCount; i++)
+            root.GetChild(i).localScale = Vector3.one * contentScale;
+    }
+
+    static float RequiredArcRadiusForRectGap(float[] angles, float requiredAxisSeparation)
+    {
+        float requiredRadius = 0f;
+        for (int i = 1; i < angles.Length; i++)
+        {
+            float previous = angles[i - 1] * Mathf.Deg2Rad;
+            float current = angles[i] * Mathf.Deg2Rad;
+            float dx = Mathf.Abs(Mathf.Cos(previous) - Mathf.Cos(current));
+            float dy = Mathf.Abs(Mathf.Sin(previous) - Mathf.Sin(current));
+            requiredRadius = Mathf.Max(requiredRadius,
+                requiredAxisSeparation / Mathf.Max(.001f, Mathf.Max(dx, dy)));
+        }
+        return requiredRadius;
+    }
+
+    void LayoutThreePartTopbar(RectTransform root, float scale, float safeWidth, float rightInset)
+    {
+        if (!root) return;
+        const float economyWidth = 740f;
+        const float baseWidth = 290f;
+        const float panelHeight = 130f;
+        const float gap = 12f;
+        root.sizeDelta = new Vector2(safeWidth, panelHeight);
+        root.localScale = Vector3.one;
+
+        RectTransform economy = root.Find("EconomyPanel") as RectTransform;
+        RectTransform red = root.Find("RedBasePanel") as RectTransform;
+        RectTransform blue = root.Find("BlueBasePanel") as RectTransform;
+        LayoutTopbarPanel(economy, Vector2.zero, new Vector2(economyWidth, panelHeight), scale);
+        float right = safeWidth * .5f - rightInset;
+        float blueCenter = right - baseWidth * scale * .5f;
+        float redCenter = right - baseWidth * scale - gap * scale - baseWidth * scale * .5f;
+        LayoutTopbarPanel(red, new Vector2(redCenter, 0f), new Vector2(baseWidth, panelHeight), scale);
+        LayoutTopbarPanel(blue, new Vector2(blueCenter, 0f), new Vector2(baseWidth, panelHeight), scale);
+
+        if (economy)
+        {
+            RectTransform interior = economy.Find("Content/Interior") as RectTransform;
+            if (interior)
+            {
+                const float horizontalPadding = 42f;
+                const float verticalPadding = 8f;
+                interior.anchorMin = interior.anchorMax = interior.pivot = new Vector2(.5f, .5f);
+                interior.anchoredPosition = new Vector2(0f, -1f);
+                interior.sizeDelta = new Vector2(economyWidth - horizontalPadding * 2f,
+                    TopbarArtworkHeight(economy, economyWidth) - verticalPadding * 2f);
+                string[] cells = { "GoldCell", "IncomeCell", "NextCell" };
+                float columnWidth = interior.sizeDelta.x / cells.Length;
+                for (int i = 0; i < cells.Length; i++)
+                {
+                    RectTransform cell = interior.Find(cells[i]) as RectTransform;
+                    if (!cell) continue;
+                    cell.anchorMin = cell.anchorMax = cell.pivot = new Vector2(.5f, .5f);
+                    cell.anchoredPosition = new Vector2((i - 1f) * columnWidth, 0f);
+                    cell.sizeDelta = new Vector2(columnWidth, interior.sizeDelta.y);
+                }
+            }
+        }
+    }
+
+    static void LayoutTopbarPanel(RectTransform panel, Vector2 position, Vector2 size, float scale)
+    {
+        if (!panel) return;
+        panel.anchorMin = panel.anchorMax = panel.pivot = new Vector2(.5f, 1f);
+        panel.anchoredPosition = position;
+        panel.sizeDelta = size;
+        panel.localScale = new Vector3(scale, scale, 1f);
+        // Increase only the vertical presentation by 22.5%. Widths and panel
+        // centers stay unchanged, while the top pivot makes the extra height
+        // extend downward into the battlefield.
+        float artworkHeight = TopbarArtworkHeight(panel, size.x) * 1.225f;
+        RectTransform artwork = panel.Find("Artwork") as RectTransform;
+        RectTransform content = panel.Find("Content") as RectTransform;
+        // Lift only the transparently padded artwork. Keeping the panel/root at y=0
+        // preserves safe-area bounds while bringing the visible ornamental edge closer
+        // to the physical top edge without clipping its endcaps.
+        LayoutTopAlignedChild(artwork, new Vector2(size.x, artworkHeight), 4f);
+        bool economyPanel = panel.name == "EconomyPanel";
+        Vector2 contentSize = economyPanel
+            ? new Vector2(size.x, artworkHeight)
+            : new Vector2(size.x - 28f, Mathf.Max(40f, artworkHeight - 16f));
+        LayoutTopAlignedChild(content, contentSize, economyPanel ? 0f : -9f);
+    }
+
+    static float TopbarArtworkHeight(RectTransform panel, float width)
+    {
+        Image artwork = panel ? panel.Find("Artwork")?.GetComponent<Image>() : null;
+        return artwork && artwork.sprite
+            ? width * artwork.sprite.rect.height / artwork.sprite.rect.width
+            : panel ? panel.sizeDelta.y : 68f;
+    }
+
+    static void LayoutTopAlignedChild(RectTransform child, Vector2 size, float y = 0f)
+    {
+        if (!child) return;
+        child.anchorMin = child.anchorMax = child.pivot = new Vector2(.5f, 1f);
+        child.anchoredPosition = new Vector2(0f, y);
+        child.sizeDelta = size;
+    }
+
+    float ResponsivePrimaryButtonSize()
+    {
+        if (!safeRoot || safeRoot.rect.height < 1f || safeRoot.rect.width < 1f)
+            return autoAttackButtonSize;
+        return Mathf.Max(96f, Mathf.Min(autoAttackButtonSize, 130f,
+            (safeRoot.rect.height - safeAreaPadding - 4f) / 1.9f,
+            (safeRoot.rect.width - safeAreaPadding - 4f) / 1.9f));
+    }
+
+    void SetDirectRect(string objectName, Vector2 anchor, Vector2 pivot, Vector2 position,
+        Vector2? size = null)
+    {
+        if (!safeRoot) return;
+        RectTransform rect = FindNewestDirectRect(objectName);
+        if (!rect) return;
+        rect.anchorMin = rect.anchorMax = anchor;
+        rect.pivot = pivot;
+        rect.anchoredPosition = position;
+        if (size.HasValue) rect.sizeDelta = size.Value;
+        rect.localScale = Vector3.one;
+    }
+
+    RectTransform FindNewestDirectRect(string objectName)
+    {
+        if (!safeRoot) return null;
+        // BuildCanvas destroys the previous runtime hierarchy at end-of-frame.
+        // Search backwards so a same-frame rebuild always lays out the newly-created group.
+        for (int i = safeRoot.childCount - 1; i >= 0; i--)
+        {
+            Transform child = safeRoot.GetChild(i);
+            if (child.name == objectName) return child as RectTransform;
+        }
+        return null;
+    }
+
+    void ConfigureLayoutValidator()
+    {
+        if (!canvas || !safeRoot) return;
+        HlwUiLayoutValidator validator = canvas.GetComponent<HlwUiLayoutValidator>();
+        if (!validator) validator = canvas.gameObject.AddComponent<HlwUiLayoutValidator>();
+        validator.Configure(canvas, safeRoot,
+            "SchematicMinimap", "PlayerHeroFocusCard", "EnemyHeroFocusCard", "GameSpeedToggle",
+            "TopHudRoot", "EconomyPanel", "GoldCell", "IncomeCell", "NextCell",
+            "RedBasePanel", "BlueBasePanel");
+    }
+
+    void LogPortraitDiagnosticsOnce()
+    {
+        if (!Application.isEditor && !Debug.isDebugBuild) return;
+        if (reportedPortraitDiagnostics || !archerButton || !knightButton || !wizardButton) return;
+        reportedPortraitDiagnostics = true;
+        Debug.Log("[HLW Unit Portraits] " + PortraitDiagnostic(knightButton) + " | " +
+            PortraitDiagnostic(archerButton) + " | " + PortraitDiagnostic(wizardButton), this);
+    }
+
+    static string PortraitDiagnostic(Button button)
+    {
+        Transform portraitRoot = button.transform.Find("PortraitMask/UnitPortrait");
+        Transform overlayRoot = button.transform.Find("PortraitMask/UnaffordableOverlay");
+        Transform frameRoot = button.transform.Find("FantasyFrame");
+        Image portrait = portraitRoot ? portraitRoot.GetComponent<Image>() : null;
+        Image overlay = overlayRoot ? overlayRoot.GetComponent<Image>() : null;
+        return $"{button.name}(affordable={button.interactable}, portrait={portrait?.color.ToString() ?? "missing"}, " +
+            $"overlayAlpha={(overlay ? overlay.color.a : -1f):0.##}, " +
+            $"frameSibling={(frameRoot ? frameRoot.GetSiblingIndex() : -1)}, " +
+            $"portraitSibling={(portraitRoot ? portraitRoot.parent.GetSiblingIndex() : -1)})";
     }
 
     void CreatePlaceholderAbility(string name, Vector2 position, int requiredLevel,
         out Image slotImage, out Text slotLabel)
     {
-        GameObject slot = new GameObject(name, typeof(RectTransform), typeof(Image), typeof(Outline), typeof(Button));
-        slot.transform.SetParent(safeRoot, false);
+        GameObject slot = new GameObject(name, typeof(RectTransform), typeof(Image), typeof(Button));
+        slot.transform.SetParent(bottomRightRoot ? bottomRightRoot : safeRoot, false);
         RectTransform rect = slot.GetComponent<RectTransform>();
         rect.anchorMin = rect.anchorMax = new Vector2(1f, 0f);
         rect.pivot = new Vector2(1f, 0f);
@@ -746,87 +1764,187 @@ public sealed class GameplayHud : MonoBehaviour
         rect.sizeDelta = new Vector2(abilitySlotSize, abilitySlotSize);
         Image image = slot.GetComponent<Image>();
         slotImage = image;
-        image.sprite = circleSprite;
-        image.color = circleSprite ? Color.white : new Color(.06f, .15f, .23f, .9f);
+        // The root is a touch target only; disabled Button tint must not dim the art.
+        image.sprite = null;
+        image.color = Color.clear;
         image.raycastTarget = true;
-        Outline outline = slot.GetComponent<Outline>();
-        outline.effectColor = new Color(.2f, .6f, .78f, .42f);
-        outline.effectDistance = new Vector2(1.5f, 1.5f);
-        Image rim = CreateImage("OrnateFrame", slot.transform, ornateButtonFrameSprite,
-            Vector2.zero, Vector2.one * (abilitySlotSize + 8f), Color.white, false);
-        rim.preserveAspect = true;
-        slot.GetComponent<Button>().interactable = false;
-        slotLabel = CreateText("EmptySlotLabel", slot.transform, $"Lv {requiredLevel}", Vector2.zero,
-            Vector2.one * abilitySlotSize, 13, TextAnchor.MiddleCenter,
-            new Color(.65f, .8f, .88f, .75f), false);
+        Button slotButton = slot.GetComponent<Button>();
+        slotButton.transition = Selectable.Transition.None;
+        if (hudSkin && hudSkin.abilityFrame)
+        {
+            Image activeFrame = CreateImage("ActiveAbilityFrame", slot.transform, hudSkin.abilityFrame,
+                Vector2.zero, Vector2.one * abilitySlotSize, Color.white, false);
+            activeFrame.preserveAspect = true;
+            activeFrame.gameObject.SetActive(false);
+        }
+        Image activeIcon = CreateImage("ActiveAbilityIcon", slot.transform, null, Vector2.zero,
+            Vector2.one * (abilitySlotSize * .52f), Color.white, false);
+        activeIcon.gameObject.SetActive(false);
+        Image lockedArtwork = CreateImage("LockedArtwork", slot.transform,
+            hudSkin ? hudSkin.lockedAbilityOverlay : null, Vector2.zero,
+            Vector2.one * abilitySlotSize, Color.white, false);
+        lockedArtwork.preserveAspect = true;
+        if (!lockedArtwork.sprite)
+            Debug.LogWarning("[HLW HUD] Premium locked ability artwork is not assigned in HlwHudSkin.", this);
+        slotButton.interactable = false;
+        slotLabel = CreateText("EmptySlotLabel", slot.transform, $"LV {requiredLevel}",
+            new Vector2(0f, -abilitySlotSize * .29f),
+            new Vector2(abilitySlotSize * .56f, abilitySlotSize * .2f), 10,
+            TextAnchor.MiddleCenter, new Color(.84f, .94f, 1f, 1f), false);
+        AddTextShadow(slotLabel);
         MobileButtonPressFeedback feedback = slot.AddComponent<MobileButtonPressFeedback>();
-        feedback.Configure(slot.GetComponent<Button>());
+        feedback.Configure(slotButton);
     }
 
     void BuildHeroProgressionPanel()
     {
+        progressionRoot = CreateBottomLayoutRoot("ProgressionRoot");
+
         GameObject panel = new GameObject("HeroProgressionPanel", typeof(RectTransform), typeof(Image), typeof(Outline));
-        panel.transform.SetParent(safeRoot, false);
+        panel.transform.SetParent(progressionRoot, false);
         RectTransform rect = panel.GetComponent<RectTransform>();
         rect.anchorMin = rect.anchorMax = new Vector2(1f, 0f);
-        rect.pivot = new Vector2(1f, 0f);
-        rect.anchoredPosition = new Vector2(-safeAreaPadding, safeAreaPadding);
-        rect.sizeDelta = new Vector2(320f, 46f);
+        rect.pivot = new Vector2(.5f, .5f);
+        rect.anchoredPosition = new Vector2(-160f, 38f);
+        rect.sizeDelta = new Vector2(350f, 88f);
         Image background = panel.GetComponent<Image>();
-        background.sprite = capsuleSprite;
-        background.type = capsuleSprite ? Image.Type.Sliced : Image.Type.Simple;
-        background.color = ControlNavy;
+        bool customProgression = hudSkin && hudSkin.progressionBarArtwork;
+        background.sprite = customProgression ? hudSkin.progressionBarArtwork : capsuleSprite;
+        background.type = Image.Type.Simple;
+        background.preserveAspect = customProgression;
+        background.color = customProgression ? Color.white : new Color(.025f, .045f, .075f, .98f);
         background.raycastTarget = false;
         Outline outline = panel.GetComponent<Outline>();
-        outline.effectColor = new Color(.36f, .72f, 1f, .72f);
+        outline.effectColor = customProgression
+            ? new Color(0f, 0f, 0f, 0f) : new Color(.36f, .72f, 1f, .72f);
         outline.effectDistance = new Vector2(1f, 1f);
-        heroLevelLabel = CreateText("HeroLevel", panel.transform, "LV 1", new Vector2(-116f, 7f),
-            new Vector2(70f, 22f), 15, TextAnchor.MiddleCenter, Gold, false);
-        heroExperienceLabel = CreateText("HeroExperience", panel.transform, "0 / 70 XP", new Vector2(32f, 7f),
-            new Vector2(200f, 22f), 12, TextAnchor.MiddleCenter, Color.white, false);
-        heroExperienceFill = CreateImage("HeroXpFill", panel.transform, null, new Vector2(39f, -11f),
-            new Vector2(224f, 7f), new Color(.3f, .72f, 1f, 1f), false);
+        if (!customProgression)
+        {
+            ChamferedFrameGraphic stripFrame = CreateChamferedLayer("ProgressionMetalwork", panel.transform,
+                new Vector2(316f, 42f), new Color(.018f, .034f, .06f, .96f),
+                new Color(.28f, .62f, .86f, .8f), 9f, 2f);
+            stripFrame.transform.SetAsFirstSibling();
+        }
+        GameObject levelBadgeRoot = new GameObject("LevelBadge", typeof(RectTransform));
+        levelBadgeRoot.transform.SetParent(panel.transform, false);
+        RectTransform levelBadgeRect = levelBadgeRoot.GetComponent<RectTransform>();
+        levelBadgeRect.anchorMin = levelBadgeRect.anchorMax = levelBadgeRect.pivot = new Vector2(.5f, .5f);
+        levelBadgeRect.anchoredPosition = customProgression ? new Vector2(-139f, 0f) : new Vector2(-150f, 0f);
+        levelBadgeRect.sizeDelta = customProgression ? new Vector2(64f, 64f) : new Vector2(48f, 48f);
+        if (!customProgression)
+        {
+            Sprite levelArtwork = hudSkin && hudSkin.levelBadge ? hudSkin.levelBadge : circleSprite;
+            Image fallbackBadge = CreateImage("BadgeArtwork", levelBadgeRoot.transform, levelArtwork,
+                Vector2.zero, levelBadgeRect.sizeDelta, hudSkin && hudSkin.levelBadge ? Color.white : Gold, false);
+            fallbackBadge.preserveAspect = true;
+        }
+        heroLevelCaption = CreateText("LevelLabelText", levelBadgeRoot.transform, "LV",
+            new Vector2(0f, 28f), new Vector2(44f, 22f), 16,
+            TextAnchor.MiddleCenter, new Color(1f, .84f, .44f, 1f), false);
+        heroLevelCaption.fontStyle = FontStyle.Bold;
+        heroLevelLabel = CreateText("LevelValueText", levelBadgeRoot.transform, "1",
+            new Vector2(0f, -5f), new Vector2(58f, 48f), 36,
+            TextAnchor.MiddleCenter, Gold, false);
+        heroLevelLabel.fontStyle = FontStyle.Bold;
+
+        GameObject xpBar = new GameObject("XPBarRoot", typeof(RectTransform));
+        xpBar.transform.SetParent(panel.transform, false);
+        RectTransform xpBarRect = xpBar.GetComponent<RectTransform>();
+        xpBarRect.anchorMin = xpBarRect.anchorMax = xpBarRect.pivot = new Vector2(.5f, .5f);
+        xpBarRect.anchoredPosition = Vector2.zero;
+        xpBarRect.sizeDelta = rect.sizeDelta;
+        CreateSolidImage("TrackBackground", xpBar.transform, Vector2.zero,
+            new Vector2(150f, 10f), new Color(.012f, .024f, .05f, .95f));
+        GameObject fillClip = new GameObject("FillClip", typeof(RectTransform), typeof(RectMask2D));
+        fillClip.transform.SetParent(xpBar.transform, false);
+        RectTransform clipRect = fillClip.GetComponent<RectTransform>();
+        clipRect.anchorMin = clipRect.anchorMax = clipRect.pivot = new Vector2(.5f, .5f);
+        clipRect.sizeDelta = new Vector2(150f, 10f);
+        // Image.Type.Filled requires a Sprite. The skin's XP fill is unassigned,
+        // while the old health-bar sprite has transparent ornamental margins.
+        if (!xpSolidFillSprite)
+            xpSolidFillSprite = Sprite.Create(Texture2D.whiteTexture, new Rect(0f, 0f, 1f, 1f),
+                new Vector2(.5f, .5f), 100f);
+        heroExperienceFill = CreateImage("XPFill", fillClip.transform, xpSolidFillSprite,
+            Vector2.zero, new Vector2(150f, 10f), new Color(1f, .76f, .22f, 1f), false);
         heroExperienceFill.type = Image.Type.Filled;
         heroExperienceFill.fillMethod = Image.FillMethod.Horizontal;
         heroExperienceFill.fillOrigin = (int)Image.OriginHorizontal.Left;
-        Image frame = CreateImage("HeroXpFrame", panel.transform, healthBarFrameSprite, new Vector2(39f, -11f),
-            new Vector2(234f, 15f), new Color(.75f, .86f, 1f, 1f), false);
-        frame.type = healthBarFrameSprite ? Image.Type.Sliced : Image.Type.Simple;
-        frame.preserveAspect = false;
+        heroExperienceFill.fillAmount = 0f;
+        heroExperienceFill.preserveAspect = false;
+        heroExperienceLabel = CreateText("XPText", xpBar.transform, "0 / 70 XP",
+            Vector2.zero, new Vector2(145f, 16f),
+            13, TextAnchor.MiddleRight, Color.white, false);
+        heroExperienceLabel.resizeTextForBestFit = true;
+        heroExperienceLabel.resizeTextMinSize = 8;
+        heroExperienceLabel.resizeTextMaxSize = 13;
+        AddTextShadow(heroExperienceLabel);
+        Outline xpTextOutline = heroExperienceLabel.gameObject.AddComponent<Outline>();
+        xpTextOutline.effectColor = new Color(.015f, .025f, .055f, .95f);
+        xpTextOutline.effectDistance = Vector2.one;
     }
 
     void BuildSkillUpgradeControls()
     {
-        CreateButton("StatsToggleButton", safeRoot, "STATS +", new Vector2(-350f, safeAreaPadding),
-            new Vector2(118f, 46f), false, Cyan, out statsToggleButton, out statsToggleLabel, true);
+        Transform statsParent = progressionRoot ? progressionRoot : safeRoot;
+        CreateButton("StatsToggleButton", statsParent, "STATS +", new Vector2(0f, 12f),
+            new Vector2(144f, 64f), false, Cyan, out statsToggleButton, out statsToggleLabel, true);
+        RectTransform statsRect = statsToggleButton.GetComponent<RectTransform>();
+        statsRect.anchorMin = statsRect.anchorMax = statsRect.pivot = Vector2.zero;
+        statsRect.anchoredPosition = new Vector2(0f, 12f);
+        statsToggleButton.transition = Selectable.Transition.None;
+        Image statsBackground = statsToggleButton.GetComponent<Image>();
+        bool premiumStats = hudSkin && hudSkin.statsFrame;
+        statsBackground.sprite = premiumStats ? hudSkin.statsFrame : capsuleSprite;
+        statsBackground.type = premiumStats ? Image.Type.Simple : Image.Type.Sliced;
+        statsBackground.preserveAspect = premiumStats;
+        if (premiumStats)
+        {
+            statsBackground.color = Color.white;
+            if (statsToggleLabel) statsToggleLabel.gameObject.SetActive(false);
+            Outline statsOutline = statsToggleButton.GetComponent<Outline>();
+            if (statsOutline) statsOutline.effectColor = Color.clear;
+        }
+        else
+        {
+            ChamferedFrameGraphic statsFrame = CreateChamferedLayer("StatsMetalwork", statsToggleButton.transform,
+                new Vector2(128f, 62f), new Color(.02f, .055f, .082f, .94f),
+                new Color(.25f, .76f, .94f, .84f), 8f, 2f);
+            statsFrame.transform.SetAsFirstSibling();
+        }
+        statsPointBadge = CreateImage("AvailablePointBadge", statsToggleButton.transform, circleSprite,
+            new Vector2(54f, 18f), new Vector2(26f, 26f), new Color(.06f, .53f, .73f, .96f), false);
+        statsPointCount = CreateText("AvailablePointCount", statsPointBadge.transform, "1", Vector2.zero,
+            new Vector2(24f, 24f), 15, TextAnchor.MiddleCenter, Color.white, false);
+        statsPointBadge.gameObject.SetActive(false);
         statsToggleButton.onClick.AddListener(ToggleStatsPanel);
 
         statsPanel = CreatePanel("HeroStatsPanel", safeRoot, Vector2.zero,
-            new Vector2(280f, 220f), TextAnchor.LowerLeft);
+            new Vector2(390f, 300f), TextAnchor.LowerLeft);
         RectTransform panelRect = statsPanel.GetComponent<RectTransform>();
         panelRect.anchorMin = panelRect.anchorMax = new Vector2(1f, 0f);
         panelRect.pivot = new Vector2(1f, 0f);
         panelRect.anchoredPosition = new Vector2(-350f, safeAreaPadding + 54f);
         skillPointLabel = CreateText("SkillPoints", statsPanel.transform, "SKILL POINTS: 0",
-            new Vector2(0f, 88f), new Vector2(250f, 28f), 15,
+            new Vector2(0f, 130f), new Vector2(350f, 28f), 15,
             TextAnchor.MiddleCenter, Gold, false);
-        CreateAttributeRow(0, "STR", HeroAttribute.Strength, 52f);
-        CreateAttributeRow(1, "AGI", HeroAttribute.Agility, 14f);
-        CreateAttributeRow(2, "INT", HeroAttribute.Intelligence, -24f);
-        CreateAttributeRow(3, "STA", HeroAttribute.Stamina, -62f);
+        CreateAttributeRow(0, "STR", HeroAttribute.Strength, 78f);
+        CreateAttributeRow(1, "AGI", HeroAttribute.Agility, 24f);
+        CreateAttributeRow(2, "INT", HeroAttribute.Intelligence, -30f);
+        CreateAttributeRow(3, "STA", HeroAttribute.Stamina, -84f);
         statsPanel.SetActive(false);
     }
 
     void CreateAttributeRow(int index, string abbreviation, HeroAttribute attribute, float y)
     {
         CreateText(abbreviation + "Label", statsPanel.transform, abbreviation,
-            new Vector2(-82f, y), new Vector2(64f, 30f), 15,
+            new Vector2(-150f, y), new Vector2(64f, 42f), 15,
             TextAnchor.MiddleLeft, Color.white, false);
         attributeValueLabels[index] = CreateText(abbreviation + "Value", statsPanel.transform, "0",
-            new Vector2(15f, y), new Vector2(70f, 30f), 15,
-            TextAnchor.MiddleCenter, new Color(.7f, .9f, 1f), false);
+            new Vector2(0f, y), new Vector2(222f, 48f), 14,
+            TextAnchor.MiddleLeft, new Color(.7f, .9f, 1f), false);
         CreateButton(abbreviation + "Upgrade", statsPanel.transform, "+",
-            new Vector2(218f, y + 95f), new Vector2(42f, 32f), false, Cyan,
+            new Vector2(326f, y + 134f), new Vector2(44f, 36f), false, Cyan,
             out attributeUpgradeButtons[index], out _);
         attributeUpgradeButtons[index].onClick.AddListener(() => UpgradeAttribute(attribute));
     }
@@ -858,12 +1976,37 @@ public sealed class GameplayHud : MonoBehaviour
         badge.SetActive(false);
     }
 
+    void CreateGeomancerSecondaryUpgradeBadge()
+    {
+        GameObject badge = new GameObject("EarthSpikesUpgradeBadge", typeof(RectTransform), typeof(Image),
+            typeof(Button), typeof(Outline));
+        badge.transform.SetParent(geomancerSecondaryButton.transform, false);
+        RectTransform rect = badge.GetComponent<RectTransform>();
+        rect.anchorMin = rect.anchorMax = new Vector2(1f, 1f);
+        rect.pivot = new Vector2(.5f, .5f);
+        rect.anchoredPosition = new Vector2(-5f, -5f);
+        rect.sizeDelta = new Vector2(30f, 30f);
+        Image image = badge.GetComponent<Image>();
+        image.sprite = circleSprite;
+        image.color = new Color(.12f, .72f, .92f, 1f);
+        geomancerSecondaryUpgradeButton = badge.GetComponent<Button>();
+        geomancerSecondaryUpgradeButton.targetGraphic = image;
+        geomancerSecondaryUpgradeButton.onClick.AddListener(UpgradeGeomancerSecondary);
+        Outline outline = badge.GetComponent<Outline>();
+        outline.effectColor = new Color(.7f, .96f, 1f, 1f);
+        outline.effectDistance = Vector2.one;
+        CreateText("Plus", badge.transform, "+", Vector2.zero, new Vector2(28f, 28f),
+            20, TextAnchor.MiddleCenter, Color.white, false);
+        badge.SetActive(false);
+    }
+
     void ToggleStatsPanel()
     {
         if (!statsPanel) return;
         bool open = !statsPanel.activeSelf;
         statsPanel.SetActive(open);
         if (!open) return;
+        UpdateSkillUpgradeHud();
         if (unitsPanel) unitsPanel.SetActive(false);
         if (itemsPanel) itemsPanel.SetActive(false);
     }
@@ -878,70 +2021,356 @@ public sealed class GameplayHud : MonoBehaviour
         if (abilityLoadout && abilityLoadout.TryUpgrade(1, heroProgression)) UpdateSkillUpgradeHud();
     }
 
+    void UpgradeGeomancerSecondary()
+    {
+        if (abilityLoadout && abilityLoadout.TryUpgrade(2, heroProgression)) UpdateSkillUpgradeHud();
+    }
+
     void UpdateSkillUpgradeHud()
     {
         int points = heroProgression ? heroProgression.UnspentSkillPoints : 0;
+        if (!statsPointBadge && statsToggleButton)
+        {
+            Transform badge = statsToggleButton.transform.Find("AvailablePointBadge");
+            if (badge) statsPointBadge = badge.GetComponent<Image>();
+            if (badge) statsPointCount = badge.GetComponentInChildren<Text>(true);
+        }
         if (skillPointLabel) skillPointLabel.text = $"SKILL POINTS: {points}";
         if (statsToggleLabel) statsToggleLabel.text = points > 0 ? $"STATS +  {points}" : "STATS +";
-        int strength = heroProgression ? heroProgression.Strength : 0;
-        int agility = heroProgression ? heroProgression.Agility : 0;
-        int intelligence = heroProgression ? heroProgression.Intelligence : 0;
-        int stamina = heroProgression ? heroProgression.Stamina : 0;
-        int[] values = { strength, agility, intelligence, stamina };
-        for (int i = 0; i < attributeValueLabels.Length; i++)
+        if (statsToggleButton)
         {
-            if (attributeValueLabels[i]) attributeValueLabels[i].text = values[i].ToString();
-            if (attributeUpgradeButtons[i]) attributeUpgradeButtons[i].interactable = points > 0;
+            statsToggleButton.interactable = points > 0;
+            Image background = statsToggleButton.GetComponent<Image>();
+            if (background) background.color = points > 0 ? Color.white : new Color(.76f, .83f, .9f, .92f);
+            Outline outline = statsToggleButton.GetComponent<Outline>();
+            if (outline) outline.effectColor = points > 0
+                ? new Color(Cyan.r, Cyan.g, Cyan.b,
+                    .27f + .16f * (.5f + .5f * Mathf.Sin(Time.unscaledTime * 4f)))
+                : new Color(.30f, .38f, .46f, .45f);
+            if (statsToggleLabel) statsToggleLabel.color = points > 0
+                ? Color.white : new Color(.78f, .84f, .9f, .94f);
+        }
+        if (statsPointBadge) statsPointBadge.gameObject.SetActive(points > 0);
+        if (statsPointCount) statsPointCount.text = points.ToString();
+        if (points <= 0 && statsPanel && statsPanel.activeSelf) statsPanel.SetActive(false);
+        if (statsPanel && statsPanel.activeSelf)
+        {
+            int strength = heroProgression ? heroProgression.Strength : 0;
+            int agility = heroProgression ? heroProgression.Agility : 0;
+            int intelligence = heroProgression ? heroProgression.Intelligence : 0;
+            int stamina = heroProgression ? heroProgression.Stamina : 0;
+            for (int i = 0; i < attributeValueLabels.Length; i++)
+            {
+                int value = i == 0 ? strength : i == 1 ? agility : i == 2 ? intelligence : stamina;
+                float perPoint = !heroProgression ? 0f : i == 0 ? heroProgression.strengthDamagePercentPerPoint :
+                    i == 1 ? heroProgression.attackSpeedPerAgility :
+                    i == 2 ? heroProgression.intelligenceAbilityPercentPerPoint :
+                    heroProgression.staminaHealthPercentPerPoint;
+                string effect = i == 0 ? "basic" : i == 1 ? "speed" : i == 2 ? "ability" : "HP";
+                if (attributeValueLabels[i]) attributeValueLabels[i].text =
+                    $"{value}  +{perPoint * 100f:0.#}% {effect}/pt\n" +
+                    $"stat +{value * perPoint * 100f:0.#}% → +{(value + 1) * perPoint * 100f:0.#}%";
+                if (attributeUpgradeButtons[i]) attributeUpgradeButtons[i].interactable = points > 0;
+            }
         }
         if (fireballUpgradeButton)
             fireballUpgradeButton.gameObject.SetActive(abilityLoadout &&
                 abilityLoadout.CanUpgrade(1, heroProgression));
+        if (geomancerSecondaryUpgradeButton)
+            geomancerSecondaryUpgradeButton.gameObject.SetActive(abilityLoadout && abilityLoadout.IsGeomancer &&
+                abilityLoadout.CanUpgrade(2, heroProgression));
     }
 
     void UpdateHeroProgression()
     {
         if (!heroProgression) return;
         int level = heroProgression.Level;
+        lastKnownHeroLevel = level;
         int needed = Mathf.Max(1, heroProgression.ExperienceToNextLevel);
-        if (heroLevelLabel) heroLevelLabel.text = $"LV {level}";
+        if (heroLevelCaption) heroLevelCaption.text = "LV";
+        if (heroLevelLabel) heroLevelLabel.text = level.ToString();
         if (heroExperienceLabel) heroExperienceLabel.text = $"{heroProgression.Experience} / {needed} XP";
-        if (heroExperienceFill) heroExperienceFill.fillAmount = Mathf.Clamp01(heroProgression.Experience / (float)needed);
+        float ratio = Mathf.Clamp01(heroProgression.Experience / (float)needed);
+        if (heroExperienceFill) heroExperienceFill.fillAmount = ratio;
+        if (enableXpDiagnostics && (lastReportedXp != heroProgression.Experience || lastReportedXpNeeded != needed))
+        {
+            lastReportedXp = heroProgression.Experience;
+            lastReportedXpNeeded = needed;
+            LogXpRatio(heroProgression.Experience, needed, ratio);
+        }
         int[] requirements = { 2, 4, 6 };
         for (int i = 0; i < futureAbilitySlots.Length; i++)
         {
-            bool unlocked = abilityLoadout ? abilityLoadout.IsUnlocked(i + 2) : level >= requirements[i];
-            if (futureAbilitySlots[i]) futureAbilitySlots[i].color = unlocked
-                ? new Color(.25f, .62f, .78f, .92f) : new Color(.18f, .24f, .32f, .78f);
+            if (geomancerAbilities && i == 0) continue;
+            HeroAbilitySlot definition = abilityLoadout && abilityLoadout.slots != null &&
+                abilityLoadout.slots.Length > i + 1 ? abilityLoadout.slots[i + 1] : null;
+            bool active = definition != null && definition.implemented && abilityLoadout.IsUnlocked(i + 2);
+            if (futureAbilitySlots[i])
+            {
+                Image icon = futureAbilitySlots[i].transform.Find("ActiveAbilityIcon")?.GetComponent<Image>();
+                if (icon) icon.sprite = active ? definition.icon : null;
+                SetLockedAbilityVisual(futureAbilitySlots[i].transform, !active);
+            }
             if (futureAbilityLabels[i])
             {
-                futureAbilityLabels[i].text = unlocked ? "SOON" : $"Lv {requirements[i]}";
-                futureAbilityLabels[i].color = unlocked ? new Color(.58f, .72f, .8f) : new Color(.55f, .64f, .72f);
+                futureAbilityLabels[i].text = active ? string.Empty : $"Lv {requirements[i]}";
+                futureAbilityLabels[i].color = new Color(.84f, .94f, 1f, 1f);
             }
         }
     }
 
+    [System.Diagnostics.Conditional("UNITY_EDITOR")]
+    [System.Diagnostics.Conditional("DEBUG")]
+    void LogXpRatio(int current, int required, float ratio)
+    {
+        Debug.Log($"[XP HUD] {current}/{required} = {ratio:P1}, rendered fill=" +
+            $"{(heroExperienceFill ? heroExperienceFill.fillAmount : -1f):P1}.", this);
+    }
+
     void BuildResultPanel()
     {
-        resultPanel = CreatePanel("MatchResultPanel", safeRoot, Vector2.zero, new Vector2(500f, 280f), TextAnchor.MiddleCenter);
-        RectTransform panelRect = resultPanel.GetComponent<RectTransform>();
-        panelRect.anchorMin = panelRect.anchorMax = new Vector2(.5f, .5f);
-        panelRect.pivot = new Vector2(.5f, .5f);
-        resultLabel = CreateText("ResultLabel", resultPanel.transform, "VICTORY", new Vector2(0f, 92f),
-            new Vector2(460f, 90f), 48, TextAnchor.MiddleCenter, Color.white, false);
-        CreateButton("RestartButton", resultPanel.transform, "RESTART MATCH", new Vector2(80f, 22f),
-            new Vector2(340f, 72f), false, Cyan, out restartButton, out _);
+        lastPresentedResult = MatchResult.None;
+        resultPanel = new GameObject("MatchResultOverlay", typeof(RectTransform), typeof(Image));
+        resultPanel.transform.SetParent(safeRoot, false);
+        RectTransform overlay = (RectTransform)resultPanel.transform;
+        overlay.anchorMin = Vector2.zero;
+        overlay.anchorMax = Vector2.one;
+        overlay.offsetMin = overlay.offsetMax = Vector2.zero;
+        Image overlayImage = resultPanel.GetComponent<Image>();
+        overlayImage.color = Color.clear;
+        overlayImage.raycastTarget = false;
+        Image backdrop = CreateSolidImage("FullscreenBackdrop", resultPanel.transform, Vector2.zero,
+            Vector2.zero, new Color(.005f, .012f, .026f, .55f));
+        backdrop.raycastTarget = true;
+
+        GameObject modal = new GameObject("MatchResultPanel", typeof(RectTransform));
+        modal.transform.SetParent(resultPanel.transform, false);
+        RectTransform modalRect = (RectTransform)modal.transform;
+        modalRect.anchorMin = modalRect.anchorMax = modalRect.pivot = new Vector2(.5f, .5f);
+        ChamferedFrameGraphic navyFrame = CreateChamferedLayer("NavyFrame", modal.transform, new Vector2(670f, 520f),
+            new Color(.015f, .033f, .065f, .985f), new Color(.30f, .69f, .87f, .92f), 20f, 3f);
+        AddShadow(navyFrame, new Color(0f, .005f, .02f, .8f), new Vector2(0f, -9f));
+        CreateChamferedLayer("InnerTrim", modal.transform, new Vector2(646f, 496f),
+            new Color(.018f, .037f, .07f, .96f), new Color(.49f, .41f, .22f, .65f), 15f, 1.4f);
+        GameObject gradientRoot = new GameObject("NavyGradient", typeof(RectTransform), typeof(CanvasRenderer),
+            typeof(MenuGradientGraphic));
+        gradientRoot.transform.SetParent(modal.transform, false);
+        MenuGradientGraphic gradient = gradientRoot.GetComponent<MenuGradientGraphic>();
+        gradient.Configure(new Color(.012f, .028f, .057f, .95f), new Color(.037f, .076f, .13f, .94f));
+        gradient.raycastTarget = false;
+        CreateSolidImage("TitleRule", modal.transform, new Vector2(0f, 130f),
+            new Vector2(490f, 2f), new Color(.28f, .65f, .85f, .48f));
+        resultLabel = CreateText("ResultLabel", modal.transform, "VICTORY", new Vector2(0f, 175f),
+            new Vector2(590f, 68f), 48, TextAnchor.MiddleCenter, Gold, false);
+        AddTextShadow(resultLabel);
+        resultDurationValue = CreateResultField(modal.transform, "DurationField", "MATCH DURATION", 96f);
+        resultLevelValue = CreateResultField(modal.transform, "LevelField", "HERO LEVEL", 50f);
+        resultIncomeValue = CreateResultField(modal.transform, "IncomeField", "FINAL INCOME", 4f);
+        CreateResultButton("RestartButton", modal.transform, "RESTART MATCH", new Vector2(0f, -65f),
+            Cyan, true, out restartButton);
         restartButton.onClick.AddListener(RestartMatch);
+        CreateResultButton("ReturnToMenuButton", modal.transform, "MAIN MENU", new Vector2(0f, -160f),
+            Blue, false, out returnToMenuButton);
+        returnToMenuButton.onClick.AddListener(ReturnToMainMenu);
         resultPanel.SetActive(false);
+    }
+
+    Text CreateResultField(Transform parent, string name, string label, float y)
+    {
+        GameObject row = new GameObject(name, typeof(RectTransform));
+        row.transform.SetParent(parent, false);
+        RectTransform rect = (RectTransform)row.transform;
+        rect.anchorMin = rect.anchorMax = rect.pivot = new Vector2(.5f, .5f);
+        rect.anchoredPosition = new Vector2(0f, y);
+        rect.sizeDelta = new Vector2(500f, 38f);
+        CreateChamferedLayer("RowSurface", row.transform, rect.sizeDelta,
+            new Color(.035f, .07f, .115f, .72f), new Color(.21f, .39f, .54f, .38f), 6f, 1f);
+        Text heading = CreateText("Heading", row.transform, label, new Vector2(-105f, 0f),
+            new Vector2(245f, 30f), 19, TextAnchor.MiddleLeft, new Color(.68f, .81f, .9f), false);
+        heading.fontStyle = FontStyle.Normal;
+        Text value = CreateText("Value", row.transform, string.Empty, new Vector2(145f, 0f),
+            new Vector2(145f, 30f), 23, TextAnchor.MiddleRight, Color.white, false);
+        return value;
+    }
+
+    void CreateResultButton(string name, Transform parent, string label, Vector2 position,
+        Color accent, bool primary, out Button button)
+    {
+        GameObject root = new GameObject(name, typeof(RectTransform), typeof(Image), typeof(Button));
+        root.transform.SetParent(parent, false);
+        RectTransform rect = (RectTransform)root.transform;
+        rect.anchorMin = rect.anchorMax = rect.pivot = new Vector2(.5f, .5f);
+        rect.anchoredPosition = position;
+        rect.sizeDelta = new Vector2(440f, 74f);
+        Image touchSurface = root.GetComponent<Image>();
+        touchSurface.color = primary ? new Color(.05f, .16f, .24f, 1f) : new Color(.025f, .055f, .09f, 1f);
+        button = root.GetComponent<Button>();
+        button.targetGraphic = touchSurface;
+        SetButtonColors(button, accent);
+        ChamferedFrameGraphic bevel = CreateChamferedLayer("BeveledFrame", root.transform, rect.sizeDelta,
+            primary ? new Color(.045f, .15f, .23f, .98f) : new Color(.025f, .052f, .09f, .98f),
+            primary ? new Color(.25f, .79f, .95f, .95f) : new Color(.32f, .48f, .62f, .8f), 11f, 2.5f);
+        AddShadow(bevel, new Color(0f, .01f, .025f, .5f), new Vector2(0f, -3f));
+        Text caption = CreateText("Label", root.transform, label, Vector2.zero,
+            new Vector2(390f, 46f), 24, TextAnchor.MiddleCenter, Color.white, false);
+        caption.fontStyle = FontStyle.Bold;
+    }
+
+    void UpdateResultAccent(bool won)
+    {
+        if (!resultPanel) return;
+        Transform modal = resultPanel.transform.Find("MatchResultPanel");
+        if (!modal) return;
+        ChamferedFrameGraphic frame = modal.Find("NavyFrame")?.GetComponent<ChamferedFrameGraphic>();
+        if (frame) frame.Configure(new Color(.015f, .033f, .065f, .985f),
+            won ? new Color(.32f, .72f, .88f, .92f) : new Color(.75f, .26f, .3f, .92f), 20f, 3f);
+        Image rule = modal.Find("TitleRule")?.GetComponent<Image>();
+        if (rule) rule.color = won ? new Color(.28f, .65f, .85f, .48f) : new Color(.76f, .28f, .31f, .52f);
+    }
+
+    void LayoutResultPanel(float scale)
+    {
+        if (!resultPanel) return;
+        RectTransform backdrop = resultPanel.transform.Find("FullscreenBackdrop") as RectTransform;
+        RectTransform canvasRect = canvas ? canvas.GetComponent<RectTransform>() : null;
+        if (backdrop && canvasRect)
+        {
+            // Extend the dimmer beyond the safe-area root to the physical canvas edges.
+            backdrop.anchorMin = Vector2.zero;
+            backdrop.anchorMax = Vector2.one;
+            backdrop.offsetMin = new Vector2(-safeRoot.anchorMin.x * canvasRect.rect.width,
+                -safeRoot.anchorMin.y * canvasRect.rect.height);
+            backdrop.offsetMax = new Vector2((1f - safeRoot.anchorMax.x) * canvasRect.rect.width,
+                (1f - safeRoot.anchorMax.y) * canvasRect.rect.height);
+        }
+        RectTransform modal = resultPanel.transform.Find("MatchResultPanel") as RectTransform;
+        if (!modal) return;
+        float fittedScale = Mathf.Min(scale, safeRoot.rect.width / 726f, safeRoot.rect.height / 576f);
+        modal.sizeDelta = new Vector2(670f, 520f) * fittedScale;
+        modal.localScale = Vector3.one;
+        RectTransform frame = modal.Find("NavyFrame") as RectTransform;
+        RectTransform trim = modal.Find("InnerTrim") as RectTransform;
+        LayoutCenteredChild(frame, Vector2.zero, new Vector2(670f, 520f), fittedScale);
+        LayoutCenteredChild(trim, Vector2.zero, new Vector2(646f, 496f), fittedScale);
+        LayoutCenteredChild(modal.Find("NavyGradient") as RectTransform, Vector2.zero,
+            new Vector2(620f, 470f), fittedScale);
+        LayoutCenteredChild(modal.Find("TitleRule") as RectTransform, new Vector2(0f, 130f),
+            new Vector2(490f, 2f), fittedScale);
+        LayoutCenteredChild(modal.Find("ResultLabel") as RectTransform, new Vector2(0f, 175f),
+            new Vector2(590f, 68f), fittedScale);
+        LayoutResultField(modal.Find("DurationField") as RectTransform, 96f, fittedScale);
+        LayoutResultField(modal.Find("LevelField") as RectTransform, 50f, fittedScale);
+        LayoutResultField(modal.Find("IncomeField") as RectTransform, 4f, fittedScale);
+        LayoutCenteredChild(modal.Find("RestartButton") as RectTransform, new Vector2(0f, -65f),
+            new Vector2(440f, 74f), fittedScale);
+        LayoutCenteredChild(modal.Find("ReturnToMenuButton") as RectTransform, new Vector2(0f, -160f),
+            new Vector2(440f, 74f), fittedScale);
+        SetScaledFont(modal.Find("ResultLabel") as RectTransform, 48, fittedScale);
+        LayoutResultButtonContents(modal.Find("RestartButton") as RectTransform, fittedScale);
+        LayoutResultButtonContents(modal.Find("ReturnToMenuButton") as RectTransform, fittedScale);
+    }
+
+    static void LayoutResultField(RectTransform row, float y, float scale)
+    {
+        LayoutCenteredChild(row, new Vector2(0f, y), new Vector2(500f, 38f), scale);
+        if (!row) return;
+        LayoutCenteredChild(row.Find("RowSurface") as RectTransform, Vector2.zero,
+            new Vector2(500f, 38f), scale);
+        RectTransform heading = row.Find("Heading") as RectTransform;
+        RectTransform value = row.Find("Value") as RectTransform;
+        LayoutCenteredChild(heading, new Vector2(-105f, 0f), new Vector2(245f, 30f), scale);
+        LayoutCenteredChild(value, new Vector2(145f, 0f), new Vector2(145f, 30f), scale);
+        SetScaledFont(heading, 19, scale);
+        SetScaledFont(value, 23, scale);
+    }
+
+    static void LayoutResultButtonContents(RectTransform root, float scale)
+    {
+        if (!root) return;
+        LayoutCenteredChild(root.Find("BeveledFrame") as RectTransform, Vector2.zero,
+            new Vector2(440f, 74f), scale);
+        RectTransform label = root.Find("Label") as RectTransform;
+        LayoutCenteredChild(label, Vector2.zero, new Vector2(390f, 46f), scale);
+        SetScaledFont(label, 24, scale);
+    }
+
+    static void SetLockedAbilityVisual(Transform slot, bool locked)
+    {
+        Transform lockedArtwork = slot.Find("LockedArtwork");
+        if (lockedArtwork) lockedArtwork.gameObject.SetActive(locked);
+        Transform activeFrame = slot.Find("ActiveAbilityFrame");
+        if (activeFrame) activeFrame.gameObject.SetActive(!locked);
+        Image activeIcon = slot.Find("ActiveAbilityIcon")?.GetComponent<Image>();
+        if (activeIcon) activeIcon.gameObject.SetActive(!locked && activeIcon.sprite);
     }
 
     void UpdateFireball(bool running)
     {
         if (!fireballButton || !fireballView) return;
+        bool geomancerSelected = geomancerAbilities || (abilityLoadout && abilityLoadout.IsGeomancer);
+        if (geomancerSelected)
+        {
+            fireballView.SetCompositeArtwork(null);
+            fireballView.SetIcon(null);
+            fireballView.SetFallbackStyle(AbilityGlyphStyle.Faultbreaker);
+            if (!geomancerAbilities)
+            {
+                fireballView.SetInteractable(false);
+                fireballView.SetLabel(string.Empty);
+                fireballView.SetCooldown(0f);
+                return;
+            }
+            bool active = running && geomancerAbilities.FaultbreakerRemaining <= 0f;
+            fireballView.SetInteractable(active);
+            fireballView.SetLabel(string.Empty);
+            fireballView.SetCooldown(Mathf.Clamp01(geomancerAbilities.FaultbreakerRemaining / 5f),
+                Mathf.CeilToInt(geomancerAbilities.FaultbreakerRemaining));
+            fireballView.SetSelected(geomancerAbilities.IsTargeting);
+            if (geomancerSecondaryButton)
+            {
+                bool unlocked = abilityLoadout && abilityLoadout.IsUnlocked(2);
+                geomancerSecondaryButton.interactable = running && unlocked && geomancerAbilities.EarthSpikesRemaining <= 0f;
+                Image activeIcon = geomancerSecondaryButton.transform.Find("ActiveAbilityIcon")?.GetComponent<Image>();
+                if (activeIcon && abilityLoadout.slots != null && abilityLoadout.slots.Length > 1)
+                    activeIcon.sprite = abilityLoadout.slots[1].icon;
+                SetLockedAbilityVisual(geomancerSecondaryButton.transform, !unlocked);
+                if (geomancerSecondaryGlyph)
+                    geomancerSecondaryGlyph.gameObject.SetActive(unlocked && (!activeIcon || !activeIcon.sprite));
+                futureAbilityLabels[0].text = unlocked
+                    ? (geomancerAbilities.EarthSpikesRemaining > 0f ? $"{Mathf.CeilToInt(geomancerAbilities.EarthSpikesRemaining)}" : string.Empty)
+                    : "Lv 2";
+                RectTransform labelRect = futureAbilityLabels[0].rectTransform;
+                labelRect.anchoredPosition = new Vector2(0f, -abilitySlotSize * .29f);
+                labelRect.sizeDelta = new Vector2(abilitySlotSize * .56f, abilitySlotSize * .2f);
+                futureAbilityLabels[0].fontSize = 10;
+            }
+            if (geomancerPassiveLabel)
+            {
+                geomancerPassiveLabel.gameObject.SetActive(true);
+                geomancerPassiveLabel.text = geomancerAbilities.IsFuryActive
+                    ? $"SEISMIC FURY  {geomancerAbilities.FuryRemaining:0.0}s"
+                    : $"SEISMIC FURY  {geomancerAbilities.FuryProgress}/5";
+                geomancerPassiveLabel.color = geomancerAbilities.IsFuryActive ? new Color(.35f, .9f, 1f) : new Color(.4f, .66f, .8f);
+            }
+            return;
+        }
+        fireballView.SetIcon(fireballIconOverride);
+        fireballView.SetFallbackStyle(AbilityGlyphStyle.Fireball);
+        fireballView.SetCompositeArtwork(hudSkin ? hudSkin.fireballButtonArtwork : null);
+        if (geomancerSecondaryGlyph) geomancerSecondaryGlyph.gameObject.SetActive(false);
+        if (futureAbilityLabels[0])
+        {
+            futureAbilityLabels[0].rectTransform.anchoredPosition =
+                new Vector2(0f, -abilitySlotSize * .29f);
+            futureAbilityLabels[0].rectTransform.sizeDelta =
+                new Vector2(abilitySlotSize * .56f, abilitySlotSize * .2f);
+            futureAbilityLabels[0].fontSize = 10;
+        }
+        if (geomancerPassiveLabel) geomancerPassiveLabel.gameObject.SetActive(false);
         bool targeting = ability && ability.IsTargeting;
         float remaining = ability ? ability.CooldownRemaining : 0f;
         fireballView.SetInteractable(running && ability && (targeting || remaining <= 0f));
-        int fireballRank = abilityLoadout ? abilityLoadout.FireballRank : 1;
-        fireballView.SetLabel(targeting ? "AIM / TAP" : $"FIREBALL {fireballRank}");
+        fireballView.SetLabel(string.Empty);
         float cooldownFraction = ability && ability.cooldown > 0f ? remaining / ability.cooldown : 0f;
         fireballView.SetCooldown(cooldownFraction, Mathf.CeilToInt(remaining));
         fireballView.SetSelected(targeting);
@@ -953,11 +2382,11 @@ public sealed class GameplayHud : MonoBehaviour
         int knightCost = sender.Cost(UnitArchetype.HolyKnight);
         int wizardCost = sender.Cost(UnitArchetype.BlueWizard);
         if (archerCost != lastArcherCost)
-        { archerLabel.text = $"ARCHER\n{archerCost} GOLD"; lastArcherCost = archerCost; }
+        { archerLabel.text = PurchaseLabel("ARCHER", archerCost); lastArcherCost = archerCost; }
         if (knightCost != lastKnightCost)
-        { knightLabel.text = $"KNIGHT\n{knightCost} GOLD"; lastKnightCost = knightCost; }
+        { knightLabel.text = PurchaseLabel("KNIGHT", knightCost); lastKnightCost = knightCost; }
         if (wizardCost != lastWizardCost)
-        { wizardLabel.text = $"WIZARD\n{wizardCost} GOLD"; lastWizardCost = wizardCost; }
+        { wizardLabel.text = PurchaseLabel("WIZARD", wizardCost); lastWizardCost = wizardCost; }
     }
 
     void ToggleUnitsPanel()
@@ -968,8 +2397,6 @@ public sealed class GameplayHud : MonoBehaviour
         if (statsPanel) statsPanel.SetActive(false);
         SetButtonSelected(unitsToggle, unitsToggleSelected, open);
         SetButtonSelected(itemsToggle, itemsToggleSelected, false);
-        SetButtonColors(unitsToggle, open ? Cyan : Blue);
-        SetButtonColors(itemsToggle, Blue);
     }
 
     void ToggleItemsPanel()
@@ -980,8 +2407,6 @@ public sealed class GameplayHud : MonoBehaviour
         if (statsPanel) statsPanel.SetActive(false);
         SetButtonSelected(itemsToggle, itemsToggleSelected, open);
         SetButtonSelected(unitsToggle, unitsToggleSelected, false);
-        SetButtonColors(itemsToggle, open ? Cyan : Blue);
-        SetButtonColors(unitsToggle, Blue);
     }
 
     void ToggleGameSpeed()
@@ -1015,25 +2440,50 @@ public sealed class GameplayHud : MonoBehaviour
     {
         if (selectedLayer)
         {
-            selectedLayer.color = selected ? new Color(.35f, .9f, 1f, .34f) : new Color(.35f, .9f, 1f, 0f);
+            selectedLayer.color = hudSkin && hudSkin.selectedOverlay
+                ? new Color(1f, 1f, 1f, selected ? 1f : 0f)
+                : (selected ? new Color(.35f, .9f, 1f, .34f) : new Color(.35f, .9f, 1f, 0f));
             selectedLayer.transform.SetAsFirstSibling();
         }
         if (button)
         {
-            button.transform.localScale = selected ? Vector3.one * 1.035f : Vector3.one;
-            SetButtonSkin(button, circleSprite, ControlNavy);
+            // The responsive layout owns root scale. Replacing the target sprite or
+            // resetting localScale here stripped the premium artwork after toggles.
+            // Selected state is presentation-only and lives in the dedicated overlay.
+            // Complete Units/Items art lives on the root Image; the transparent
+            // TouchTarget is a separate raycast layer and must stay transparent.
+            Image target = button.GetComponent<Image>();
+            if (target)
+            {
+                bool generatedCleanToggle = hudSkin && !HasCompleteButtonArtwork(button.name) &&
+                    (button.name == "UnitsToggle" || button.name == "ItemsToggle");
+                Sprite expected = generatedCleanToggle ? null : ButtonSprite(button.name);
+                target.sprite = expected;
+                target.color = expected ? Color.white :
+                    (generatedCleanToggle ? Color.clear : ControlNavy);
+                target.enabled = true;
+                target.gameObject.SetActive(true);
+            }
             Transform interiorTransform = button.transform.Find("DarkInterior");
             Image interior = interiorTransform ? interiorTransform.GetComponent<Image>() : null;
             if (interior) interior.color = selected
                 ? new Color(.055f, .16f, .22f, .99f) : ControlNavy;
             Outline rim = button.GetComponent<Outline>();
             if (rim) rim.effectColor = selected
-                ? new Color(.36f, .92f, 1f, .95f) : new Color(.2f, .62f, .88f, .72f);
+                ? new Color(.36f, .92f, 1f, .55f) : new Color(.2f, .62f, .88f, .18f);
         }
     }
 
     void ToggleFireballTargeting()
     {
+        if (!geomancerAbilities && HeroProgression.PlayerHero)
+            geomancerAbilities = HeroProgression.PlayerHero.GetComponent<GeomancerAbilityController>();
+        if (geomancerAbilities)
+        {
+            if (geomancerAbilities.IsTargeting) geomancerAbilities.CancelTargeting();
+            else geomancerAbilities.BeginFaultbreaker();
+            return;
+        }
         if (!ability) ability = HeroProgression.PlayerHero
             ? HeroProgression.PlayerHero.GetComponent<FireballAbility>() : FindAnyObjectByType<FireballAbility>();
         if (!ability) return;
@@ -1045,9 +2495,14 @@ public sealed class GameplayHud : MonoBehaviour
             if (statsPanel) statsPanel.SetActive(false);
             SetButtonSelected(unitsToggle, unitsToggleSelected, false);
             SetButtonSelected(itemsToggle, itemsToggleSelected, false);
-            SetButtonColors(unitsToggle, Blue);
-            SetButtonColors(itemsToggle, Blue);
         }
+    }
+
+    void TriggerEarthSpikes()
+    {
+        if (!geomancerAbilities && HeroProgression.PlayerHero)
+            geomancerAbilities = HeroProgression.PlayerHero.GetComponent<GeomancerAbilityController>();
+        if (geomancerAbilities) geomancerAbilities.BeginEarthSpikes();
     }
 
     void TriggerAutoAttack()
@@ -1064,34 +2519,124 @@ public sealed class GameplayHud : MonoBehaviour
     void SendKnight() { if (!sender) sender = FindAnyObjectByType<FriendlyUnitSender>(); if (sender) sender.SendKnight(); }
     void SendWizard() { if (!sender) sender = FindAnyObjectByType<FriendlyUnitSender>(); if (sender) sender.SendWizard(); }
     void RestartMatch() { if (!matchLoop) matchLoop = GetComponent<MatchLoopController>(); if (matchLoop) matchLoop.RestartMatch(); }
+    void ReturnToMainMenu() => HlwGameSession.ReturnToMainMenu();
+
+    RectTransform CreateRectTransform(string name, Transform parent)
+    {
+        GameObject child = new GameObject(name, typeof(RectTransform));
+        child.transform.SetParent(parent, false);
+        return (RectTransform)child.transform;
+    }
+
+    GameObject CreateTopbarPanel(string name, Transform parent, Sprite artwork)
+    {
+        GameObject panel = new GameObject(name, typeof(RectTransform));
+        panel.transform.SetParent(parent, false);
+        GameObject artworkObject = new GameObject("Artwork", typeof(RectTransform), typeof(Image));
+        artworkObject.transform.SetParent(panel.transform, false);
+        Image background = artworkObject.GetComponent<Image>();
+        background.sprite = artwork;
+        background.type = Image.Type.Simple;
+        background.preserveAspect = false;
+        background.color = artwork ? Color.white : new Color(.025f, .055f, .095f, .96f);
+        background.raycastTarget = false;
+        CreateRectTransform("Content", panel.transform);
+        return panel;
+    }
+
+    Text CreateTopbarStatCell(string name, string title, Transform parent, Color accent,
+        Sprite iconSprite, bool useClockGlyph)
+    {
+        RectTransform cell = CreateRectTransform(name, parent);
+        const float iconX = -48f;
+        if (iconSprite)
+        {
+            Image icon = CreateImage("Icon", cell, iconSprite, new Vector2(iconX, 0f),
+                new Vector2(24f, 24f), Color.white, false);
+            icon.preserveAspect = true;
+        }
+        else if (useClockGlyph)
+        {
+            Image clockWell = CreateImage("IconWell", cell, circleSprite,
+                new Vector2(iconX, 0f), new Vector2(24f, 24f),
+                new Color(accent.r, accent.g, accent.b, .88f), false);
+            clockWell.preserveAspect = true;
+            CreateSmallClockGlyph(cell, new Vector2(iconX, 0f), accent);
+        }
+
+        Text caption = CreateText("Caption", cell, title, new Vector2(24f, 8f),
+            new Vector2(120f, 18f), 14, TextAnchor.MiddleCenter,
+            new Color(accent.r, accent.g, accent.b, .98f), false);
+        AddTextShadow(caption);
+        Text value = CreateText("Value", cell, string.Empty, new Vector2(24f, -10f),
+            new Vector2(124f, 23f), 20, TextAnchor.MiddleCenter,
+            title == "GOLD" ? new Color(1f, .88f, .52f) : Color.white, false);
+        value.fontStyle = FontStyle.Bold;
+        AddTextShadow(value);
+        return value;
+    }
+
+    void CreateTopbarHealthContent(Transform parent, string title, Color accent, Sprite fillSprite,
+        out Text value, out Image fill)
+    {
+        RectTransform group = CreateRectTransform("BaseContentGroup", parent);
+        group.anchorMin = Vector2.zero;
+        group.anchorMax = Vector2.one;
+        group.offsetMin = Vector2.zero;
+        group.offsetMax = Vector2.zero;
+        Image crest = CreateImage("FactionIcon", group, heartIconSprite,
+            new Vector2(-58f, 0f), new Vector2(24f, 24f), Color.white, false);
+        crest.preserveAspect = true;
+        Text caption = CreateText("Caption", group, title, new Vector2(20f, 8f),
+            new Vector2(132f, 18f), 14, TextAnchor.MiddleCenter,
+            new Color(accent.r, accent.g, accent.b, 1f), false);
+        AddTextShadow(caption);
+        value = CreateText("Value", group, string.Empty, new Vector2(20f, -10f),
+            new Vector2(136f, 23f), 20, TextAnchor.MiddleCenter, Color.white, false);
+        value.fontStyle = FontStyle.Bold;
+        AddTextShadow(value);
+        fill = null;
+    }
+
+    void CreateSmallClockGlyph(Transform parent, Vector2 center, Color accent)
+    {
+        CreateSolidImage("ClockMinuteHand", parent, center + new Vector2(0f, 2.5f),
+            new Vector2(1.5f, 7f), Color.white);
+        Image hourHand = CreateSolidImage("ClockHourHand", parent,
+            center + new Vector2(2.5f, -.5f), new Vector2(5.5f, 1.5f),
+            new Color(.86f, .94f, 1f));
+        hourHand.rectTransform.localRotation = Quaternion.Euler(0f, 0f, 18f);
+        CreateSolidImage("ClockHub", parent, center, new Vector2(2.5f, 2.5f),
+            new Color(accent.r, accent.g, accent.b, 1f));
+    }
 
     Text CreateTopStatWidget(string name, string title, Transform parent, Vector2 position,
         Vector2 size, Color accent, Sprite iconSprite, bool useClockGlyph, bool topRight = false)
     {
         GameObject panel = CreateFantasyTopFrame(name, parent, position, size, accent, topRight);
-        float iconX = -size.x * .5f + 28f;
+        float iconX = -size.x * .5f + 29f;
         Sprite badgeSprite = useClockGlyph && buttonPurpleSprite ? buttonPurpleSprite : circleSprite;
         Image badge = CreateImage("IconWell", panel.transform, badgeSprite,
-            new Vector2(iconX, 0f), new Vector2(39f, 39f),
+            new Vector2(iconX, 0f), new Vector2(36f, 36f),
             Color.Lerp(new Color(.3f, .35f, .48f, 1f), accent, .48f), false);
         badge.preserveAspect = true;
 
         if (iconSprite)
         {
             Image icon = CreateImage("Icon", panel.transform, iconSprite,
-                new Vector2(iconX, 0f), new Vector2(29f, 29f), Color.white, false);
+                new Vector2(iconX, 0f), new Vector2(26f, 26f), Color.white, false);
             icon.preserveAspect = true;
         }
         else if (useClockGlyph)
             CreateClockGlyph(panel.transform, new Vector2(iconX, 0f), accent);
 
-        float textX = 24f;
+        float textX = 25f;
         Text caption = CreateText("Caption", panel.transform, title,
-            new Vector2(textX, 14f), new Vector2(size.x - 70f, 16f), 10,
+            new Vector2(textX, 11f), new Vector2(size.x - 70f, 16f), 10,
             TextAnchor.MiddleLeft, new Color(accent.r, accent.g, accent.b, .95f), false);
         AddTextShadow(caption);
         Text value = CreateText("Value", panel.transform, string.Empty,
-            new Vector2(textX, -8f), new Vector2(size.x - 70f, 25f), 18,
+            new Vector2(textX, -10f), new Vector2(size.x - 70f, 24f), 18,
             TextAnchor.MiddleLeft, title == "GOLD" ? new Color(1f, .88f, .52f) : Color.white, false);
         AddTextShadow(value);
         return value;
@@ -1108,29 +2653,44 @@ public sealed class GameplayHud : MonoBehaviour
         rect.anchoredPosition = position;
         rect.sizeDelta = size;
         Image frame = panel.GetComponent<Image>();
-        frame.sprite = panelFrameSprite ? panelFrameSprite : capsuleSprite;
-        frame.type = frame.sprite ? Image.Type.Sliced : Image.Type.Simple;
-        frame.color = frame.sprite
-            ? Color.Lerp(new Color(.13f, .17f, .24f, .99f), accent, .13f)
+        frame.sprite = SkinOrFallback(hudSkin ? hudSkin.topHudBackground : null,
+            panelFrameSprite ? panelFrameSprite : capsuleSprite);
+        SetImageType(frame, true);
+        bool customTopFrame = hudSkin && hudSkin.topHudBackground && !topHudTwoRows;
+        if (customTopFrame) frame.sprite = null;
+        frame.color = customTopFrame ? Color.clear : frame.sprite
+            ? Color.Lerp(new Color(.055f, .075f, .11f, .98f), accent, .09f)
             : new Color(.025f, .04f, .07f, .96f);
         frame.raycastTarget = false;
         Outline outline = panel.GetComponent<Outline>();
-        outline.effectColor = new Color(accent.r, accent.g, accent.b, .48f);
+        outline.effectColor = customTopFrame
+            ? new Color(0f, 0f, 0f, 0f) : new Color(accent.r, accent.g, accent.b, .48f);
         outline.effectDistance = new Vector2(1.25f, 1.25f);
         outline.useGraphicAlpha = true;
         AddShadow(frame, new Color(.005f, .01f, .025f, .78f), new Vector2(0f, -4f));
 
-        Image inset = CreateImage("DarkInset", panel.transform, capsuleSprite,
-            new Vector2(0f, -1f), new Vector2(size.x - 16f, size.y - 15f),
-            new Color(.035f, .052f, .085f, .88f), false);
-        inset.type = capsuleSprite ? Image.Type.Sliced : Image.Type.Simple;
-        inset.preserveAspect = false;
-        CreateSolidImage("AccentInlay", panel.transform,
-            new Vector2(0f, -size.y * .5f + 8f), new Vector2(size.x - 30f, 2f),
-            new Color(accent.r, accent.g, accent.b, .78f));
-        CreateSolidImage("AccentGlow", panel.transform,
-            new Vector2(0f, -size.y * .5f + 8f), new Vector2(size.x - 48f, 5f),
-            new Color(accent.r, accent.g, accent.b, .12f));
+        if (!hudSkin || !hudSkin.topHudBackground)
+        {
+            ChamferedFrameGraphic metal = CreateChamferedLayer("MetallicShell", panel.transform,
+                new Vector2(size.x - 4f, size.y - 4f), new Color(.018f, .032f, .055f, .9f),
+                new Color(accent.r, accent.g, accent.b, .72f), 10f, 2f);
+            metal.transform.SetAsFirstSibling();
+        }
+
+        if (!customTopFrame)
+        {
+            Image inset = CreateImage("DarkInset", panel.transform, capsuleSprite,
+                new Vector2(0f, -1f), new Vector2(size.x - 16f, size.y - 15f),
+                new Color(.035f, .052f, .085f, .88f), false);
+            inset.type = capsuleSprite ? Image.Type.Sliced : Image.Type.Simple;
+            inset.preserveAspect = false;
+            CreateSolidImage("AccentInlay", panel.transform,
+                new Vector2(0f, -size.y * .5f + 8f), new Vector2(size.x - 30f, 2f),
+                new Color(accent.r, accent.g, accent.b, .78f));
+            CreateSolidImage("AccentGlow", panel.transform,
+                new Vector2(0f, -size.y * .5f + 8f), new Vector2(size.x - 48f, 5f),
+                new Color(accent.r, accent.g, accent.b, .12f));
+        }
         return panel;
     }
 
@@ -1151,30 +2711,30 @@ public sealed class GameplayHud : MonoBehaviour
         out Text value, out Image fill)
     {
         GameObject card = CreateFantasyTopFrame(name, parent, position, size, accent, true);
-        float iconX = mirrored ? size.x * .5f - 27f : -size.x * .5f + 27f;
-        float contentX = mirrored ? -22f : 22f;
+        float iconX = mirrored ? size.x * .5f - 29f : -size.x * .5f + 29f;
+        float contentX = mirrored ? -25f : 25f;
         float contentWidth = size.x - 64f;
         TextAnchor alignment = mirrored ? TextAnchor.MiddleRight : TextAnchor.MiddleLeft;
 
         Image crestWell = CreateImage("CrestWell", card.transform, circleSprite,
-            new Vector2(iconX, 4f), new Vector2(43f, 43f),
+            new Vector2(iconX, 0f), new Vector2(36f, 36f),
             Color.Lerp(new Color(.28f, .32f, .45f, 1f), accent, .5f), false);
         crestWell.preserveAspect = true;
         Image crest = CreateImage("BaseCrest", card.transform, heartIconSprite,
-            new Vector2(iconX, 4f), new Vector2(30f, 30f),
+            new Vector2(iconX, 0f), new Vector2(26f, 26f),
             new Color(1f, .96f, .98f), false);
         crest.preserveAspect = true;
         Text caption = CreateText("Caption", card.transform, title,
-            new Vector2(contentX, 17f), new Vector2(contentWidth, 17f), 10,
+            new Vector2(contentX, 11f), new Vector2(contentWidth, 16f), 10,
             alignment, new Color(accent.r, accent.g, accent.b, .96f), false);
         AddTextShadow(caption);
         value = CreateText("Value", card.transform, string.Empty,
-            new Vector2(contentX, 1f), new Vector2(contentWidth, 22f),
+            new Vector2(contentX, -10f), new Vector2(contentWidth, 24f),
             17, alignment, Color.white, false);
         AddTextShadow(value);
 
         fill = CreateImage("HealthFill", card.transform, fillSprite,
-            new Vector2(contentX, -21f), new Vector2(contentWidth - 10f, 7f),
+            new Vector2(contentX, -25f), new Vector2(contentWidth - 10f, 7f),
             title == "RED BASE" ? new Color(1f, .2f, .23f, 1f) : new Color(.28f, .68f, 1f), false);
         if (!fillSprite) fill.color = accent;
         fill.preserveAspect = false;
@@ -1182,7 +2742,7 @@ public sealed class GameplayHud : MonoBehaviour
         fill.fillMethod = Image.FillMethod.Horizontal;
         fill.fillOrigin = (int)Image.OriginHorizontal.Left;
         Image barFrame = CreateImage("HealthFrame", card.transform, healthBarFrameSprite,
-            new Vector2(contentX, -21f), new Vector2(contentWidth, 15f),
+            new Vector2(contentX, -25f), new Vector2(contentWidth, 15f),
             new Color(.78f, .87f, .94f, 1f), false);
         barFrame.type = healthBarFrameSprite ? Image.Type.Sliced : Image.Type.Simple;
         barFrame.preserveAspect = false;
@@ -1232,35 +2792,69 @@ public sealed class GameplayHud : MonoBehaviour
         rect.sizeDelta = size;
         Image image = buttonObject.GetComponent<Image>();
         image.sprite = ButtonSprite(name);
-        image.type = image.sprite && !circle ? Image.Type.Sliced : Image.Type.Simple;
+        if (circle) image.type = Image.Type.Simple;
+        else SetImageType(image, true);
         image.color = image.sprite ? Color.white : FallbackButtonColor(name);
+        bool completeArtwork = circle && HasCompleteButtonArtwork(name);
+        image.preserveAspect = completeArtwork;
         image.raycastTarget = true;
         button = buttonObject.GetComponent<Button>();
         button.targetGraphic = image;
         button.transition = Selectable.Transition.ColorTint;
         SetButtonColors(button, accent);
+        if (completeArtwork && (name == "UnitsToggle" || name == "ItemsToggle"))
+        {
+            image.raycastTarget = false;
+            Image touchTarget = CreateSolidImage("TouchTarget", buttonObject.transform,
+                Vector2.zero, size, Color.clear);
+            touchTarget.raycastTarget = true;
+            button.targetGraphic = touchTarget;
+            button.transition = Selectable.Transition.None;
+        }
         MobileButtonPressFeedback pressFeedback = buttonObject.AddComponent<MobileButtonPressFeedback>();
         pressFeedback.Configure(button);
         Outline outline = buttonObject.GetComponent<Outline>();
-        outline.effectColor = accent;
-        outline.effectDistance = circle ? new Vector2(2f, 2f) : new Vector2(1.5f, 1.5f);
+        bool customCircleArtwork = circle && CustomCircleFrameFor(name);
+        outline.effectColor = completeArtwork ? Color.clear : customCircleArtwork
+            ? (name == "AutoAttackButton" ? new Color(1f, .76f, .3f, .42f) : new Color(.28f, .8f, 1f, .42f))
+            : accent;
+        outline.effectDistance = customCircleArtwork ? Vector2.one
+            : (circle ? new Vector2(2f, 2f) : new Vector2(1.5f, 1.5f));
         outline.useGraphicAlpha = true;
         AddShadow(image, new Color(0f, .01f, .025f, .68f), new Vector2(0f, -4f));
-        if (circle)
+        Image circleInterior = null;
+        if (circle && !completeArtwork)
         {
-            Image interior = CreateImage("DarkInterior", buttonObject.transform, circleSprite,
+            circleInterior = CreateImage("DarkInterior", buttonObject.transform, circleSprite,
                 Vector2.zero, size * .82f, ControlNavy, false);
-            interior.preserveAspect = true;
+            circleInterior.preserveAspect = true;
         }
-        if (circle && ornateButtonFrameSprite)
+        bool cleanSecondaryCircle = !completeArtwork && hudSkin &&
+            (name == "UnitsToggle" || name == "ItemsToggle");
+        if (cleanSecondaryCircle)
         {
-            Image frame = CreateImage("FantasyFrame", buttonObject.transform, ornateButtonFrameSprite,
-                Vector2.zero, size * 1.1f, Color.white, false);
+            image.sprite = null;
+            image.color = Color.clear;
+            if (circleInterior) circleInterior.gameObject.SetActive(false);
+        }
+        Sprite circularFrame = completeArtwork || cleanSecondaryCircle ? null : CircleFrameFor(name);
+        if (circle && circularFrame)
+        {
+            Image frame = CreateImage("FantasyFrame", buttonObject.transform, circularFrame,
+                Vector2.zero, size * 1.1f,
+                name == "AutoAttackButton" ? Color.white : new Color(.72f, .9f, 1f, .96f), false);
             frame.preserveAspect = true;
+        }
+        if (circle && !completeArtwork && (cleanSecondaryCircle || !CustomCircleFrameFor(name)))
+        {
+            CreateArcaneRing("ArcaneMetalRing", buttonObject.transform, size * .94f,
+                cleanSecondaryCircle ? new Color(.08f, .38f, .62f, .94f) : accent,
+                cleanSecondaryCircle ? Color.clear : new Color(1f, .72f, .25f, .78f),
+                cleanSecondaryCircle ? 0 : (name == "AutoAttackButton" ? 8 : 4));
         }
 
         Sprite iconSprite = ButtonIcon(name);
-        if (circle && iconSprite)
+        if (circle && iconSprite && !completeArtwork)
         {
             Image icon = CreateImage("Icon", buttonObject.transform, iconSprite,
                 new Vector2(0f, size.y * .13f), new Vector2(size.x * .46f, size.y * .46f),
@@ -1273,6 +2867,8 @@ public sealed class GameplayHud : MonoBehaviour
             circle ? 14 : 19, TextAnchor.MiddleCenter, Color.white, false);
         text.raycastTarget = false;
         if (circle && iconSprite) AddTextShadow(text);
+        text.gameObject.SetActive(!completeArtwork);
+        AddSkinStateLayers(button, buttonObject.transform, size, circle);
     }
 
     static void AddTextShadow(Text text)
@@ -1324,11 +2920,98 @@ public sealed class GameplayHud : MonoBehaviour
         return image;
     }
 
+    ChamferedFrameGraphic CreateChamferedLayer(string name, Transform parent, Vector2 size,
+        Color fill, Color border, float corner, float borderWidth)
+    {
+        GameObject layer = new GameObject(name, typeof(RectTransform), typeof(CanvasRenderer),
+            typeof(ChamferedFrameGraphic));
+        layer.transform.SetParent(parent, false);
+        RectTransform rect = (RectTransform)layer.transform;
+        rect.anchorMin = rect.anchorMax = rect.pivot = new Vector2(.5f, .5f);
+        rect.anchoredPosition = Vector2.zero;
+        rect.sizeDelta = size;
+        ChamferedFrameGraphic graphic = layer.GetComponent<ChamferedFrameGraphic>();
+        graphic.Configure(fill, border, corner, borderWidth);
+        graphic.raycastTarget = false;
+        return graphic;
+    }
+
+    ArcaneRingGraphic CreateArcaneRing(string name, Transform parent, Vector2 size,
+        Color accent, Color ticks, int tickCount)
+    {
+        GameObject layer = new GameObject(name, typeof(RectTransform), typeof(CanvasRenderer),
+            typeof(ArcaneRingGraphic));
+        layer.transform.SetParent(parent, false);
+        RectTransform rect = (RectTransform)layer.transform;
+        rect.anchorMin = rect.anchorMax = rect.pivot = new Vector2(.5f, .5f);
+        rect.anchoredPosition = Vector2.zero;
+        rect.sizeDelta = size;
+        ArcaneRingGraphic ring = layer.GetComponent<ArcaneRingGraphic>();
+        ring.Configure(new Color(accent.r * .55f, accent.g * .55f, accent.b * .55f, .88f),
+            new Color(accent.r, accent.g, accent.b, .96f), ticks, .055f);
+        ring.accentTicks = tickCount;
+        ring.raycastTarget = false;
+        return ring;
+    }
+
+    void AddSkinStateLayers(Button button, Transform parent, Vector2 size, bool preserveAspect)
+    {
+        if (!hudSkin || (!hudSkin.pressedOverlay && !hudSkin.disabledOverlay)) return;
+        Image pressed = hudSkin.pressedOverlay
+            ? CreateImage("PressedArtwork", parent, hudSkin.pressedOverlay, Vector2.zero,
+                size, Color.white, false) : null;
+        Image disabled = hudSkin.disabledOverlay
+            ? CreateImage("DisabledArtwork", parent, hudSkin.disabledOverlay, Vector2.zero,
+                size, Color.white, false) : null;
+        if (pressed) { pressed.preserveAspect = preserveAspect; SetImageType(pressed, !preserveAspect); }
+        if (disabled) { disabled.preserveAspect = preserveAspect; SetImageType(disabled, !preserveAspect); }
+        HlwHudSpriteState state = button.gameObject.AddComponent<HlwHudSpriteState>();
+        state.Configure(button, pressed, disabled);
+    }
+
+    Sprite CustomCircleFrameFor(string name)
+    {
+        if (!hudSkin) return null;
+        if (name == "AutoAttackButton")
+            return SkinOrFallback(hudSkin.autoAttackButtonFrame, hudSkin.primaryCircularButtonFrame);
+        if (name == "UnitsToggle")
+            return SkinOrFallback(hudSkin.unitsButtonFrame, hudSkin.primaryCircularButtonFrame);
+        if (name == "ItemsToggle")
+            return SkinOrFallback(hudSkin.itemsButtonFrame, hudSkin.secondaryCircularButtonFrame);
+        return null;
+    }
+
+    bool HasCompleteButtonArtwork(string name)
+    {
+        if (!hudSkin) return false;
+        if (name == "UnitsToggle") return hudSkin.unitsButtonFrame;
+        if (name == "ItemsToggle") return hudSkin.itemsButtonFrame;
+        if (name == "AutoAttackButton") return hudSkin.autoAttackButtonFrame;
+        return false;
+    }
+
+    Sprite CircleFrameFor(string name) =>
+        SkinOrFallback(CustomCircleFrameFor(name), ornateButtonFrameSprite);
+
+    static Sprite SkinOrFallback(Sprite skinSprite, Sprite fallback) => skinSprite ? skinSprite : fallback;
+
+    static void SetImageType(Image image, bool scalable)
+    {
+        if (!image) return;
+        Vector4 border = image.sprite ? image.sprite.border : Vector4.zero;
+        image.type = scalable && image.sprite &&
+            (border.x > 0f || border.y > 0f || border.z > 0f || border.w > 0f)
+            ? Image.Type.Sliced : Image.Type.Simple;
+    }
+
     Sprite ButtonSprite(string name)
     {
+        if (HasCompleteButtonArtwork(name)) return CustomCircleFrameFor(name);
         if (name == "FireballButton") return circleSprite;
         if (name == "UnitsToggle") return circleSprite;
         if (name == "ItemsToggle") return circleSprite;
+        if (name == "StatsToggleButton")
+            return SkinOrFallback(hudSkin ? hudSkin.statsFrame : null, capsuleSprite);
         if (name.StartsWith("Send", System.StringComparison.Ordinal)) return buttonGreenSprite;
         return buttonCyanSprite ? buttonCyanSprite : circleSprite;
     }
@@ -1337,7 +3020,7 @@ public sealed class GameplayHud : MonoBehaviour
     {
         if (name == "UnitsToggle") return unitsIconSprite;
         if (name == "ItemsToggle") return itemsIconSprite;
-        if (name == "RestartButton") return backIconSprite;
+        if (name == "RestartButton" || name == "ReturnToMenuButton") return backIconSprite;
         return null;
     }
 
@@ -1401,21 +3084,30 @@ public sealed class GameplayHud : MonoBehaviour
         Color accent = PurchaseAccent(button.name);
         if (background)
         {
-            background.color = affordable ? Color.white : new Color(.42f, .47f, .52f, .72f);
+            background.color = hudSkin && hudSkin.abilityFrame ? Color.white :
+                (affordable ? Color.white : new Color(.42f, .47f, .52f, .72f));
         }
-        if (label) label.color = affordable ? Color.white : new Color(.58f, .65f, .7f, .58f);
-        Transform emblemTransform = button.transform.Find("UnitEmblem");
-        Text emblem = emblemTransform ? emblemTransform.GetComponent<Text>() : null;
-        if (emblem) emblem.color = affordable
-            ? Color.Lerp(Color.white, accent, .32f) : new Color(.52f, .57f, .62f, .62f);
+        if (label) label.color = affordable
+            ? new Color(1f, .9f, .52f, 1f) : new Color(.84f, .77f, .57f, 1f);
+        Transform portraitTransform = button.transform.Find("PortraitMask/UnitPortrait");
+        Image portrait = portraitTransform ? portraitTransform.GetComponent<Image>() : null;
+        if (portrait) portrait.color = Color.white;
+        Transform overlayTransform = button.transform.Find("PortraitMask/UnaffordableOverlay");
+        Image overlay = overlayTransform ? overlayTransform.GetComponent<Image>() : null;
+        if (overlay) overlay.color = affordable
+            ? new Color(.015f, .035f, .075f, 0f)
+            : new Color(.015f, .035f, .075f, .26f);
         Transform interiorTransform = button.transform.Find("DarkInterior");
         Image interior = interiorTransform ? interiorTransform.GetComponent<Image>() : null;
         if (interior) interior.color = affordable
             ? Color.Lerp(ControlNavy, accent, .08f) : new Color(.055f, .065f, .075f, .74f);
         Transform frameTransform = button.transform.Find("FantasyFrame");
         Image frame = frameTransform ? frameTransform.GetComponent<Image>() : null;
-        if (frame) frame.color = affordable
-            ? new Color(accent.r, accent.g, accent.b, .92f) : new Color(.34f, .39f, .44f, .46f);
+        if (frame) frame.color = hudSkin &&
+            (hudSkin.abilityFrame || hudSkin.secondaryCircularButtonFrame)
+            ? (affordable ? new Color(.9f, .96f, 1f, .94f) : new Color(.68f, .76f, .82f, .78f))
+            : (affordable ? new Color(accent.r, accent.g, accent.b, .92f)
+                : new Color(.34f, .39f, .44f, .46f));
         Outline outline = button.GetComponent<Outline>();
         if (outline) outline.effectColor = affordable
             ? new Color(accent.r, accent.g, accent.b, .82f) : new Color(.2f, .28f, .34f, .34f);
@@ -1426,6 +3118,17 @@ public sealed class GameplayHud : MonoBehaviour
         if (buttonName.Contains("Knight")) return KnightAccent;
         if (buttonName.Contains("Wizard")) return WizardAccent;
         return ArcherAccent;
+    }
+
+    static string PurchaseLabel(string unitName, int cost) => $"{cost} GOLD";
+
+    static Sprite LoadUnitProfile(string resourcePath)
+    {
+        Sprite sprite = Resources.Load<Sprite>(resourcePath);
+        if (sprite) return sprite;
+        Texture2D texture = Resources.Load<Texture2D>(resourcePath);
+        return texture ? Sprite.Create(texture, new Rect(0f, 0f, texture.width, texture.height),
+            new Vector2(.5f, .5f), 100f, 0u, SpriteMeshType.FullRect) : null;
     }
 
     static void ConfigureLandscape()
