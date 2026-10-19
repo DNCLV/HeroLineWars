@@ -19,8 +19,10 @@ public sealed class HeroAnimationDriver : MonoBehaviour
         definition = heroDefinition;
         movement = GetComponent<HeroLaneController>();
         legacyAnimation = GetComponentInChildren<Animation>(true);
-        if (!legacyAnimation)
-            Debug.LogWarning($"{name}: imported hero has no Legacy Animation component; gameplay remains functional.", this);
+        if (!legacyAnimation && definition && definition.heroId == HlwHeroSelection.Battlemage)
+            Debug.Log($"{name}: Battlemage GLB has no animation clips; using its static pose. Combat timing is independent of animation.", this);
+        else if (!legacyAnimation)
+            Debug.LogWarning($"{name}: imported hero has no Legacy Animation component; check its animation import.", this);
         PrepareNeutralPose();
         PlayLocomotion(true);
     }

@@ -1,10 +1,12 @@
 using UnityEngine;
+using System;
 
 public enum HeroAttribute { Strength, Agility, Intelligence, Stamina }
 
 /// <summary>Reusable hero health, attributes, experience, levels, and derived-stat recalculation.</summary>
 public sealed class HeroProgression : MonoBehaviour
 {
+    public event Action<int> LevelledUp;
     [Header("Identity")]
     public bool isPlayerHero = true;
     public bool enableExperience = true;
@@ -148,6 +150,7 @@ public sealed class HeroProgression : MonoBehaviour
             Intelligence += intelligenceGrowth;
             Stamina += staminaGrowth;
             RecalculateDerivedStats(true);
+            LevelledUp?.Invoke(Level);
         }
     }
 

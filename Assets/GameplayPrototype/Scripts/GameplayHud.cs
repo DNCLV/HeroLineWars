@@ -3,12 +3,13 @@ using UnityEngine.EventSystems;
 using UnityEngine.InputSystem.UI;
 using UnityEngine.UI;
 using System.Collections.Generic;
+using TMPro;
 
 /// <summary>Responsive, safe-area-aware mobile overlay for the lane prototype.</summary>
 [DefaultExecutionOrder(-50)]
 public sealed class GameplayHud : MonoBehaviour
 {
-    const int HudLayoutVersion = 51;
+    const int HudLayoutVersion = 54;
     // Painted XP track in Level_XP_Bar_Runtime.png, normalized to the full sprite.
     static readonly Rect XpArtworkTrack = new Rect(.246f, .407f, .387f, .115f);
     const float HudReferenceWidth = 1672f;
@@ -133,8 +134,13 @@ public sealed class GameplayHud : MonoBehaviour
     [SerializeField, HideInInspector] Image[] futureAbilitySlots = new Image[3];
     [SerializeField, HideInInspector] Text[] futureAbilityLabels = new Text[3];
     readonly Button[] attributeUpgradeButtons = new Button[4];
-    readonly Text[] attributeValueLabels = new Text[4];
-    Text skillPointLabel;
+    readonly TextMeshProUGUI[] attributeValueLabels = new TextMeshProUGUI[4];
+    readonly TextMeshProUGUI[] attributeEffectLabels = new TextMeshProUGUI[4];
+    readonly TextMeshProUGUI[] attributePreviewLabels = new TextMeshProUGUI[4];
+    readonly int[] displayedAttributeValues = { -1, -1, -1, -1 };
+    readonly float[] displayedAttributeRates = { -1f, -1f, -1f, -1f };
+    int displayedSkillPoints = -1;
+    TextMeshProUGUI skillPointLabel;
     Text statsToggleLabel;
     Image statsPointBadge;
     Text statsPointCount;
@@ -164,6 +170,11 @@ public sealed class GameplayHud : MonoBehaviour
     Text geomancerPassiveLabel;
     AbilityButtonGlyph geomancerSecondaryGlyph;
     HeroProgression heroProgression;
+    HeroProgression subscribedLevelHero;
+    Renderer[] levelUpHeroRenderers;
+    TextMeshProUGUI levelUpFeedback;
+    RectTransform levelUpFeedbackRect;
+    float levelUpFeedbackUntil;
     HeroAbilityLoadout abilityLoadout;
     HeroProgression enemyHeroProgression;
     HlwCameraController cameraController;
@@ -210,9 +221,14 @@ public sealed class GameplayHud : MonoBehaviour
         }
     }
 
-    void OnDisable() { HlwGameSpeed.ResetToNormal(); }
+    void OnDisable()
+    {
+        BindLevelUpHero(null);
+        HlwGameSpeed.ResetToNormal();
+    }
     void OnDestroy()
     {
+        BindLevelUpHero(null);
         HlwGameSpeed.ResetToNormal();
         if (xpSolidFillSprite) Destroy(xpSolidFillSprite);
     }
@@ -311,6 +327,8 @@ public sealed class GameplayHud : MonoBehaviour
             if (heroProgression && !abilityLoadout) abilityLoadout = heroProgression.GetComponent<HeroAbilityLoadout>();
             nextReferenceSearch = Time.unscaledTime + .25f;
         }
+        if (subscribedLevelHero != heroProgression) BindLevelUpHero(heroProgression);
+        UpdateLevelUpFeedback();
 
         bool running = matchLoop && matchLoop.IsRunning;
         if (autoAttackButton)
@@ -454,6 +472,7 @@ public sealed class GameplayHud : MonoBehaviour
         BuildAbilityControls();
         BuildHeroProgressionPanel();
         BuildSkillUpgradeControls();
+        BuildLevelUpFeedback();
         BuildResultPanel();
         builtHudLayoutVersion = HudLayoutVersion;
         ApplyResponsiveLayout(true);
@@ -1195,14 +1214,31 @@ public sealed class GameplayHud : MonoBehaviour
             new Vector2(413f, 138f), bottomScale, true);
         LayoutProgressionContents(bottomScale);
         LayoutResultPanel(designScale);
-        SetDirectRect("HeroStatsPanel", new Vector2(1f, 0f), new Vector2(1f, 0f),
-            new Vector2(-edge - 470f, edge + 108f));
+        LayoutSkillPointsPanel(designScale);
 
         Canvas.ForceUpdateCanvases();
         lastLayoutScreenWidth = Screen.width;
         lastLayoutScreenHeight = Screen.height;
         lastLayoutSafeArea = safe;
         lastGeomancerBottomLayout = geomancerBottomLayout;
+    }
+
+    void LayoutSkillPointsPanel(float designScale)
+    {
+        RectTransform panel = FindNewestDirectRect("HeroStatsPanel");
+        if (!panel || !safeRoot) return;
+        float safeWidth = safeRoot.rect.width;
+        float safeHeight = safeRoot.rect.height;
+        float rightClearance = Mathf.Max(24f, 245f * designScale);
+        float scale = Mathf.Max(.1f, Mathf.Min(designScale,
+            (safeWidth - rightClearance - 24f) / 420f, (safeHeight - 36f) / 300f));
+        float bottom = Mathf.Clamp(116f * designScale, 18f,
+            Mathf.Max(18f, safeHeight - 300f * scale - 18f));
+        panel.anchorMin = panel.anchorMax = new Vector2(1f, 0f);
+        panel.pivot = new Vector2(1f, 0f);
+        panel.sizeDelta = new Vector2(420f, 300f);
+        panel.localScale = Vector3.one * scale;
+        panel.anchoredPosition = new Vector2(-rightClearance, bottom);
     }
 
     void LayoutReferenceTopHud(float scale)
@@ -1886,6 +1922,9 @@ public sealed class GameplayHud : MonoBehaviour
 
     void BuildSkillUpgradeControls()
     {
+        displayedSkillPoints = -1;
+        for (int i = 0; i < displayedAttributeValues.Length; i++)
+        { displayedAttributeValues[i] = -1; displayedAttributeRates[i] = -1f; }
         Transform statsParent = progressionRoot ? progressionRoot : safeRoot;
         CreateButton("StatsToggleButton", statsParent, "STATS +", new Vector2(0f, 12f),
             new Vector2(144f, 64f), false, Cyan, out statsToggleButton, out statsToggleLabel, true);
@@ -1919,34 +1958,199 @@ public sealed class GameplayHud : MonoBehaviour
         statsPointBadge.gameObject.SetActive(false);
         statsToggleButton.onClick.AddListener(ToggleStatsPanel);
 
-        statsPanel = CreatePanel("HeroStatsPanel", safeRoot, Vector2.zero,
-            new Vector2(390f, 300f), TextAnchor.LowerLeft);
+        statsPanel = new GameObject("HeroStatsPanel", typeof(RectTransform), typeof(Image));
+        statsPanel.transform.SetParent(safeRoot, false);
         RectTransform panelRect = statsPanel.GetComponent<RectTransform>();
         panelRect.anchorMin = panelRect.anchorMax = new Vector2(1f, 0f);
         panelRect.pivot = new Vector2(1f, 0f);
-        panelRect.anchoredPosition = new Vector2(-350f, safeAreaPadding + 54f);
-        skillPointLabel = CreateText("SkillPoints", statsPanel.transform, "SKILL POINTS: 0",
-            new Vector2(0f, 130f), new Vector2(350f, 28f), 15,
-            TextAnchor.MiddleCenter, Gold, false);
-        CreateAttributeRow(0, "STR", HeroAttribute.Strength, 78f);
-        CreateAttributeRow(1, "AGI", HeroAttribute.Agility, 24f);
-        CreateAttributeRow(2, "INT", HeroAttribute.Intelligence, -30f);
-        CreateAttributeRow(3, "STA", HeroAttribute.Stamina, -84f);
+        panelRect.anchoredPosition = new Vector2(-245f, 116f);
+        panelRect.sizeDelta = new Vector2(420f, 300f);
+        Image blocker = statsPanel.GetComponent<Image>();
+        blocker.color = new Color(.024f, .086f, .16f, .98f); // #061629
+        blocker.raycastTarget = true;
+        AddShadow(blocker, new Color(0f, .005f, .025f, .78f), new Vector2(0f, -7f));
+        CreateChamferedLayer("MetallicOuterFrame", statsPanel.transform, new Vector2(420f, 300f),
+            new Color(.024f, .086f, .16f, .98f), new Color(0f, .81f, 1f, .96f), 22f, 4f);
+        CreateChamferedLayer("InnerGoldTrim", statsPanel.transform, new Vector2(412f, 292f),
+            new Color(.043f, .125f, .22f, .82f), new Color(.95f, .76f, .36f, .56f), 17f, 1.5f);
+        ChamferedFrameGraphic header = CreateChamferedLayer("HeaderFrame", statsPanel.transform,
+            new Vector2(300f, 36f), new Color(.024f, .09f, .16f, .96f),
+            new Color(.65f, .79f, .91f, .8f), 12f, 2f);
+        header.rectTransform.anchoredPosition = new Vector2(0f, 114f);
+        skillPointLabel = CreateSkillText("SkillPoints", statsPanel.transform, "SKILL POINTS: 0",
+            new Vector2(0f, 114f), new Vector2(276f, 30f), 19f,
+            TextAlignmentOptions.Center, new Color(.95f, .76f, .36f), FontStyles.Bold);
+        CreateSolidImage("HeaderDivider", statsPanel.transform, new Vector2(0f, 86f),
+            new Vector2(390f, 1f), new Color(0f, .81f, 1f, .68f)).raycastTarget = false;
+        CreateSkillUpgradeButton("CloseStatsPanel", statsPanel.transform, new Vector2(184f, 115f),
+            28f, 28f, "×", ToggleStatsPanel, out _);
+        CreateAttributeRow(0, "STR", HeroAttribute.Strength, 61.5f,
+            new Color(.84f, .25f, .29f, 1f), unitsIconSprite, string.Empty);
+        CreateAttributeRow(1, "AGI", HeroAttribute.Agility, 7.5f,
+            new Color(.27f, .75f, .4f, 1f), null, "➤");
+        CreateAttributeRow(2, "INT", HeroAttribute.Intelligence, -46.5f,
+            new Color(.52f, .38f, .91f, 1f), null, "✦");
+        CreateAttributeRow(3, "STA", HeroAttribute.Stamina, -100.5f,
+            new Color(.64f, .78f, .38f, 1f), heartIconSprite, string.Empty);
         statsPanel.SetActive(false);
     }
 
-    void CreateAttributeRow(int index, string abbreviation, HeroAttribute attribute, float y)
+    void CreateAttributeRow(int index, string abbreviation, HeroAttribute attribute, float y,
+        Color iconColor, Sprite iconSprite, string glyph)
     {
-        CreateText(abbreviation + "Label", statsPanel.transform, abbreviation,
-            new Vector2(-150f, y), new Vector2(64f, 42f), 15,
-            TextAnchor.MiddleLeft, Color.white, false);
-        attributeValueLabels[index] = CreateText(abbreviation + "Value", statsPanel.transform, "0",
-            new Vector2(0f, y), new Vector2(222f, 48f), 14,
-            TextAnchor.MiddleLeft, new Color(.7f, .9f, 1f), false);
-        CreateButton(abbreviation + "Upgrade", statsPanel.transform, "+",
-            new Vector2(326f, y + 134f), new Vector2(44f, 36f), false, Cyan,
-            out attributeUpgradeButtons[index], out _);
-        attributeUpgradeButtons[index].onClick.AddListener(() => UpgradeAttribute(attribute));
+        GameObject row = new GameObject(abbreviation + "Row", typeof(RectTransform));
+        row.transform.SetParent(statsPanel.transform, false);
+        RectTransform rowRect = (RectTransform)row.transform;
+        rowRect.anchorMin = rowRect.anchorMax = rowRect.pivot = new Vector2(.5f, .5f);
+        rowRect.anchoredPosition = new Vector2(0f, y);
+        rowRect.sizeDelta = new Vector2(398f, 47f);
+        CreateChamferedLayer("RowSurface", row.transform, rowRect.sizeDelta,
+            new Color(.03f, .1f, .17f, .96f), new Color(0f, .72f, .9f, .68f), 11f, 1.5f);
+        Image iconFrame = CreateImage("PremiumIconFrame", row.transform,
+            hudSkin && hudSkin.abilityFrame ? hudSkin.abilityFrame : circleSprite,
+            new Vector2(-174f, 0f), new Vector2(34f, 34f), Color.white, false);
+        iconFrame.preserveAspect = true;
+        CreateImage("AttributeColor", row.transform, circleSprite, new Vector2(-174f, 0f),
+            new Vector2(20f, 20f), new Color(iconColor.r, iconColor.g, iconColor.b, .68f), false);
+        if (iconSprite)
+            CreateImage("AttributeSymbol", row.transform, iconSprite, new Vector2(-174f, 0f),
+                new Vector2(18f, 18f), Color.white, false);
+        else
+            CreateSkillText("AttributeSymbol", row.transform, glyph, new Vector2(-174f, 0f),
+                new Vector2(22f, 22f), 18f, TextAlignmentOptions.Center, Color.white, FontStyles.Bold);
+        CreateSkillText("AttributeName", row.transform, abbreviation,
+            new Vector2(-133f, 9f), new Vector2(52f, 18f), 17f,
+            TextAlignmentOptions.MidlineLeft, new Color(.95f, .76f, .36f), FontStyles.Bold);
+        attributeValueLabels[index] = CreateSkillText("CurrentValue", row.transform, "0",
+            new Vector2(-133f, -10f), new Vector2(52f, 17f), 15f,
+            TextAlignmentOptions.MidlineLeft, Color.white, FontStyles.Bold);
+        attributeEffectLabels[index] = CreateSkillText("EffectPerPoint", row.transform, string.Empty,
+            new Vector2(42f, 9f), new Vector2(214f, 18f), 11f,
+            TextAlignmentOptions.MidlineLeft, new Color(.83f, .92f, 1f), FontStyles.Normal);
+        attributePreviewLabels[index] = CreateSkillText("BonusPreview", row.transform, string.Empty,
+            new Vector2(42f, -10f), new Vector2(214f, 18f), 11f,
+            TextAlignmentOptions.MidlineLeft, new Color(.95f, .76f, .36f), FontStyles.Bold);
+        CreateSkillUpgradeButton(abbreviation + "Upgrade", row.transform, new Vector2(174f, 0f),
+            36f, 32f, "+", () => UpgradeAttribute(attribute), out Button button);
+        attributeUpgradeButtons[index] = button;
+    }
+
+    void CreateSkillUpgradeButton(string name, Transform parent, Vector2 center,
+        float targetSize, float artworkSize, string glyph, UnityEngine.Events.UnityAction action,
+        out Button button)
+    {
+        GameObject root = new GameObject(name, typeof(RectTransform), typeof(Image), typeof(Button));
+        root.transform.SetParent(parent, false);
+        RectTransform rect = (RectTransform)root.transform;
+        rect.anchorMin = rect.anchorMax = rect.pivot = new Vector2(.5f, .5f);
+        rect.anchoredPosition = center;
+        rect.sizeDelta = new Vector2(targetSize, targetSize);
+        Image hitArea = root.GetComponent<Image>();
+        hitArea.color = Color.clear;
+        hitArea.raycastTarget = true;
+        Image artwork = CreateImage("PremiumFrame", root.transform,
+            hudSkin && hudSkin.abilityFrame ? hudSkin.abilityFrame : circleSprite,
+            Vector2.zero, new Vector2(artworkSize, artworkSize), Color.white, false);
+        artwork.preserveAspect = true;
+        Outline glow = artwork.gameObject.AddComponent<Outline>();
+        glow.effectColor = new Color(0f, .81f, 1f, .5f);
+        glow.effectDistance = Vector2.one;
+        TextMeshProUGUI symbol = CreateSkillText("Symbol", root.transform, glyph, Vector2.zero,
+            new Vector2(artworkSize * .6f, artworkSize * .6f), artworkSize * .45f,
+            TextAlignmentOptions.Center, Color.white, FontStyles.Bold);
+        symbol.raycastTarget = false;
+        button = root.GetComponent<Button>();
+        button.targetGraphic = hitArea;
+        button.transition = Selectable.Transition.None;
+        button.onClick.AddListener(action);
+        MobileButtonPressFeedback press = root.AddComponent<MobileButtonPressFeedback>();
+        press.Configure(button);
+    }
+
+    TextMeshProUGUI CreateSkillText(string name, Transform parent, string content,
+        Vector2 position, Vector2 size, float fontSize, TextAlignmentOptions alignment,
+        Color color, FontStyles style)
+    {
+        GameObject textObject = new GameObject(name, typeof(RectTransform), typeof(TextMeshProUGUI));
+        textObject.transform.SetParent(parent, false);
+        RectTransform rect = (RectTransform)textObject.transform;
+        rect.anchorMin = rect.anchorMax = rect.pivot = new Vector2(.5f, .5f);
+        rect.anchoredPosition = position;
+        rect.sizeDelta = size;
+        TextMeshProUGUI label = textObject.GetComponent<TextMeshProUGUI>();
+        label.font = TMP_Settings.defaultFontAsset;
+        if (label.font) label.fontSharedMaterial = label.font.material;
+        label.text = content;
+        label.fontSize = fontSize;
+        label.fontStyle = style;
+        label.alignment = alignment;
+        label.color = color;
+        label.enableAutoSizing = false;
+        label.overflowMode = TextOverflowModes.Truncate;
+        label.raycastTarget = false;
+        return label;
+    }
+
+    void BuildLevelUpFeedback()
+    {
+        levelUpFeedback = CreateSkillText("HeroLevelUpFeedback", safeRoot, string.Empty,
+            Vector2.zero, new Vector2(240f, 46f), 27f, TextAlignmentOptions.Center,
+            new Color(1f, .82f, .34f, 0f), FontStyles.Bold);
+        levelUpFeedbackRect = levelUpFeedback.rectTransform;
+        levelUpFeedback.gameObject.SetActive(false);
+    }
+
+    void BindLevelUpHero(HeroProgression next)
+    {
+        if (subscribedLevelHero == next) return;
+        if (subscribedLevelHero) subscribedLevelHero.LevelledUp -= ShowLevelUpFeedback;
+        subscribedLevelHero = next;
+        levelUpHeroRenderers = next ? next.GetComponentsInChildren<Renderer>(true) : null;
+        if (subscribedLevelHero && subscribedLevelHero.IsPlayerHero)
+            subscribedLevelHero.LevelledUp += ShowLevelUpFeedback;
+    }
+
+    void ShowLevelUpFeedback(int level)
+    {
+        if (!levelUpFeedback || level <= 1) return;
+        levelUpFeedback.text = $"LEVEL UP: {level}";
+        levelUpFeedbackUntil = Time.unscaledTime + 4f;
+        levelUpFeedback.gameObject.SetActive(true);
+    }
+
+    void UpdateLevelUpFeedback()
+    {
+        if (!levelUpFeedback || !levelUpFeedback.gameObject.activeSelf) return;
+        float remaining = levelUpFeedbackUntil - Time.unscaledTime;
+        if (remaining <= 0f || !subscribedLevelHero)
+        {
+            levelUpFeedback.gameObject.SetActive(false);
+            return;
+        }
+        Camera gameplayCamera = Camera.main;
+        if (!gameplayCamera) return;
+        float headY = subscribedLevelHero.transform.position.y + 2.8f;
+        if (levelUpHeroRenderers != null)
+            for (int i = 0; i < levelUpHeroRenderers.Length; i++)
+            {
+                Renderer renderer = levelUpHeroRenderers[i];
+                if (renderer is MeshRenderer || renderer is SkinnedMeshRenderer)
+                    headY = Mathf.Max(headY, renderer.bounds.max.y + .35f);
+            }
+        Vector3 world = subscribedLevelHero.transform.position;
+        world.y = headY;
+        Vector3 screen = gameplayCamera.WorldToScreenPoint(world);
+        if (screen.z <= 0f)
+        {
+            levelUpFeedback.enabled = false;
+            return;
+        }
+        levelUpFeedback.enabled = true;
+        if (RectTransformUtility.ScreenPointToLocalPointInRectangle(safeRoot, screen, null, out Vector2 point))
+            levelUpFeedbackRect.anchoredPosition = point + Vector2.up * (12f + 24f * (1f - remaining / 4f));
+        float fade = Mathf.Min(1f, (4f - remaining) * 5f, remaining * 1.5f);
+        levelUpFeedback.color = new Color(1f, .82f, .34f, fade);
+        levelUpFeedbackRect.localScale = Vector3.one * Mathf.Lerp(.85f, 1f, Mathf.Clamp01((4f - remaining) * 4f));
     }
 
     void CreateFireballUpgradeBadge()
@@ -2035,11 +2239,13 @@ public sealed class GameplayHud : MonoBehaviour
             if (badge) statsPointBadge = badge.GetComponent<Image>();
             if (badge) statsPointCount = badge.GetComponentInChildren<Text>(true);
         }
-        if (skillPointLabel) skillPointLabel.text = $"SKILL POINTS: {points}";
+        if (skillPointLabel && displayedSkillPoints != points) skillPointLabel.text = $"SKILL POINTS: {points}";
+        displayedSkillPoints = points;
         if (statsToggleLabel) statsToggleLabel.text = points > 0 ? $"STATS +  {points}" : "STATS +";
         if (statsToggleButton)
         {
-            statsToggleButton.interactable = points > 0;
+            // The panel remains readable at zero points; only upgrades are disabled.
+            statsToggleButton.interactable = true;
             Image background = statsToggleButton.GetComponent<Image>();
             if (background) background.color = points > 0 ? Color.white : new Color(.76f, .83f, .9f, .92f);
             Outline outline = statsToggleButton.GetComponent<Outline>();
@@ -2052,7 +2258,6 @@ public sealed class GameplayHud : MonoBehaviour
         }
         if (statsPointBadge) statsPointBadge.gameObject.SetActive(points > 0);
         if (statsPointCount) statsPointCount.text = points.ToString();
-        if (points <= 0 && statsPanel && statsPanel.activeSelf) statsPanel.SetActive(false);
         if (statsPanel && statsPanel.activeSelf)
         {
             int strength = heroProgression ? heroProgression.Strength : 0;
@@ -2066,11 +2271,33 @@ public sealed class GameplayHud : MonoBehaviour
                     i == 1 ? heroProgression.attackSpeedPerAgility :
                     i == 2 ? heroProgression.intelligenceAbilityPercentPerPoint :
                     heroProgression.staminaHealthPercentPerPoint;
-                string effect = i == 0 ? "basic" : i == 1 ? "speed" : i == 2 ? "ability" : "HP";
-                if (attributeValueLabels[i]) attributeValueLabels[i].text =
-                    $"{value}  +{perPoint * 100f:0.#}% {effect}/pt\n" +
-                    $"stat +{value * perPoint * 100f:0.#}% → +{(value + 1) * perPoint * 100f:0.#}%";
-                if (attributeUpgradeButtons[i]) attributeUpgradeButtons[i].interactable = points > 0;
+                if (displayedAttributeValues[i] != value ||
+                    !Mathf.Approximately(displayedAttributeRates[i], perPoint))
+                {
+                    if (attributeValueLabels[i]) attributeValueLabels[i].text = value.ToString();
+                    string effect = i == 0 ? "AA dmg" : i == 1 ? "attack speed" :
+                        i == 2 ? "ability dmg" : "max HP";
+                    if (attributeEffectLabels[i]) attributeEffectLabels[i].text =
+                        $"+{perPoint * 100f:0.#}% {effect} / point" +
+                        (i == 3 && heroProgression ?
+                            $" · +{heroProgression.regenerationPerStamina:0.##} HP/s" : "");
+                    if (attributePreviewLabels[i]) attributePreviewLabels[i].text =
+                        $"Bonus +{value * perPoint * 100f:0.#}%  →  +{(value + 1) * perPoint * 100f:0.#}%";
+                    displayedAttributeValues[i] = value;
+                    displayedAttributeRates[i] = perPoint;
+                }
+                if (attributeUpgradeButtons[i])
+                {
+                    Button upgrade = attributeUpgradeButtons[i];
+                    upgrade.interactable = points > 0;
+                    Transform frameTransform = upgrade.transform.Find("PremiumFrame");
+                    Image buttonImage = frameTransform ? frameTransform.GetComponent<Image>() : null;
+                    if (buttonImage) buttonImage.color = points > 0 ? Color.white :
+                        new Color(.6f, .68f, .75f, .9f);
+                    Outline rim = frameTransform ? frameTransform.GetComponent<Outline>() : null;
+                    if (rim) rim.effectColor = points > 0 ? new Color(.2f, .85f, 1f, .54f) :
+                        new Color(.22f, .35f, .45f, .34f);
+                }
             }
         }
         if (fireballUpgradeButton)

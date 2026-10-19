@@ -280,9 +280,7 @@ public sealed class HlwUiLayoutValidator : MonoBehaviour
             if (ExceedsTolerance(overflow))
                 failures.Add($"TEXT_OUT {Path(text)} parent={Path(parent)} bounds={Format(textBounds)} " +
                     $"parentBounds={Format(parentBounds)} overflow={FormatOverflow(overflow)}");
-            else
-                Debug.Log($"[HLW UI Bounds] TEXT_INSIDE {Path(text)} bounds={Format(textBounds)} " +
-                    $"parentBounds={Format(parentBounds)} overflow={FormatOverflow(overflow)}", this);
+            // Valid containment is already represented by the single PASS summary.
         }
     }
 
