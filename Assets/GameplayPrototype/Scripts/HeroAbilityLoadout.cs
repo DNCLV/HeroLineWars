@@ -15,7 +15,7 @@ public sealed class HeroAbilitySlot
     [NonSerialized] public bool unlocked;
 }
 
-/// <summary>Level-gated four-slot shell; only the existing Fireball behavior is assigned.</summary>
+/// <summary>Definition-driven, level-gated four-slot hero loadout.</summary>
 public sealed class HeroAbilityLoadout : MonoBehaviour
 {
     public HlwHeroSelection heroId = HlwHeroSelection.Battlemage;
@@ -74,6 +74,11 @@ public sealed class HeroAbilityLoadout : MonoBehaviour
         {
             slots[i].unlocked = heroLevel >= slots[i].requiredHeroLevel;
             if (i == 0 && fireball) slots[i].cooldown = fireball.cooldown;
+            if (i == 1 && !IsGeomancer && slots[i].implemented)
+            {
+                FireSlashAbility slash = GetComponent<FireSlashAbility>();
+                if (slash) slots[i].cooldown = slash.cooldown;
+            }
         }
     }
 
@@ -114,7 +119,7 @@ public sealed class HeroAbilityLoadout : MonoBehaviour
             slots = new[]
         {
             new HeroAbilitySlot { slot = 1, requiredHeroLevel = 1, displayName = "Fireball", rank = 1, maximumRank = 3, implemented = true },
-            new HeroAbilitySlot { slot = 2, requiredHeroLevel = 2, displayName = "Locked" },
+            new HeroAbilitySlot { slot = 2, requiredHeroLevel = 2, displayName = "Fire Slash", rank = 1, maximumRank = 3, implemented = true },
             new HeroAbilitySlot { slot = 3, requiredHeroLevel = 4, displayName = "Locked" },
             new HeroAbilitySlot { slot = 4, requiredHeroLevel = 6, displayName = "Locked" }
         };
@@ -128,9 +133,19 @@ public sealed class HeroAbilityLoadout : MonoBehaviour
         {
             slots[i].slot = i + 1;
             slots[i].requiredHeroLevel = i == 1 ? 2 : i == 2 ? 4 : 6;
-            slots[i].implemented = false;
-            slots[i].maximumRank = 0;
-            slots[i].rank = 0;
+            if (i == 1)
+            {
+                slots[i].displayName = "Fire Slash";
+                slots[i].implemented = true;
+                slots[i].maximumRank = 3;
+                slots[i].rank = Mathf.Clamp(slots[i].rank <= 0 ? 1 : slots[i].rank, 1, 3);
+            }
+            else
+            {
+                slots[i].implemented = false;
+                slots[i].maximumRank = 0;
+                slots[i].rank = 0;
+            }
         }
     }
 }

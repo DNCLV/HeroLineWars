@@ -104,6 +104,8 @@ public sealed class GameplayHud : MonoBehaviour
     Image itemsToggleSelected;
     Image speedToggleGlow;
     AbilityButtonView fireballView;
+    Image fireSlashCooldownImage;
+
     Text goldLabel;
     Text incomeLabel;
     Text payoutLabel;
@@ -166,6 +168,7 @@ public sealed class GameplayHud : MonoBehaviour
     bool topHudTwoRows;
     bool lastGeomancerBottomLayout;
     FireballAbility ability;
+    FireSlashAbility fireSlashAbility;
     GeomancerAbilityController geomancerAbilities;
     Text geomancerPassiveLabel;
     AbilityButtonGlyph geomancerSecondaryGlyph;
@@ -1059,7 +1062,7 @@ public sealed class GameplayHud : MonoBehaviour
             new Vector2(-safeAreaPadding - primarySize - 4f, clusterBottom + 94f),
             2, out futureAbilitySlots[0], out futureAbilityLabels[0]);
         geomancerSecondaryButton = futureAbilitySlots[0].GetComponent<Button>();
-        geomancerSecondaryButton.onClick.AddListener(TriggerEarthSpikes);
+        geomancerSecondaryButton.onClick.AddListener(TriggerSecondaryAbility);
         GameObject earthGlyphObject = new GameObject("EarthSpikesGlyph", typeof(RectTransform),
             typeof(CanvasRenderer), typeof(AbilityButtonGlyph));
         earthGlyphObject.transform.SetParent(geomancerSecondaryButton.transform, false);
@@ -1124,6 +1127,8 @@ public sealed class GameplayHud : MonoBehaviour
 
         if (!geomancerSecondaryButton && futureAbilitySlots[0])
             geomancerSecondaryButton = futureAbilitySlots[0].GetComponent<Button>();
+            EnsureFireSlashCooldownOverlay();
+
         if (!geomancerSecondaryGlyph && futureAbilitySlots[0])
             geomancerSecondaryGlyph = futureAbilitySlots[0].GetComponentInChildren<AbilityButtonGlyph>(true);
         if (!geomancerPassiveLabel)
@@ -2195,7 +2200,7 @@ public sealed class GameplayHud : MonoBehaviour
         image.color = new Color(.12f, .72f, .92f, 1f);
         geomancerSecondaryUpgradeButton = badge.GetComponent<Button>();
         geomancerSecondaryUpgradeButton.targetGraphic = image;
-        geomancerSecondaryUpgradeButton.onClick.AddListener(UpgradeGeomancerSecondary);
+        geomancerSecondaryUpgradeButton.onClick.AddListener(UpgradeSecondaryAbility);
         Outline outline = badge.GetComponent<Outline>();
         outline.effectColor = new Color(.7f, .96f, 1f, 1f);
         outline.effectDistance = Vector2.one;
@@ -2225,7 +2230,7 @@ public sealed class GameplayHud : MonoBehaviour
         if (abilityLoadout && abilityLoadout.TryUpgrade(1, heroProgression)) UpdateSkillUpgradeHud();
     }
 
-    void UpgradeGeomancerSecondary()
+    void UpgradeSecondaryAbility()
     {
         if (abilityLoadout && abilityLoadout.TryUpgrade(2, heroProgression)) UpdateSkillUpgradeHud();
     }
@@ -2304,7 +2309,7 @@ public sealed class GameplayHud : MonoBehaviour
             fireballUpgradeButton.gameObject.SetActive(abilityLoadout &&
                 abilityLoadout.CanUpgrade(1, heroProgression));
         if (geomancerSecondaryUpgradeButton)
-            geomancerSecondaryUpgradeButton.gameObject.SetActive(abilityLoadout && abilityLoadout.IsGeomancer &&
+            geomancerSecondaryUpgradeButton.gameObject.SetActive(abilityLoadout &&
                 abilityLoadout.CanUpgrade(2, heroProgression));
     }
 
@@ -2328,7 +2333,7 @@ public sealed class GameplayHud : MonoBehaviour
         int[] requirements = { 2, 4, 6 };
         for (int i = 0; i < futureAbilitySlots.Length; i++)
         {
-            if (geomancerAbilities && i == 0) continue;
+            if (i == 0 && (geomancerAbilities || fireSlashAbility)) continue;
             HeroAbilitySlot definition = abilityLoadout && abilityLoadout.slots != null &&
                 abilityLoadout.slots.Length > i + 1 ? abilityLoadout.slots[i + 1] : null;
             bool active = definition != null && definition.implemented && abilityLoadout.IsUnlocked(i + 2);
@@ -2531,7 +2536,42 @@ public sealed class GameplayHud : MonoBehaviour
         if (activeIcon) activeIcon.gameObject.SetActive(!locked && activeIcon.sprite);
     }
 
-    void UpdateFireball(bool running)
+    void EnsureFireSlashCooldownOverlay()
+    {
+        if (!geomancerSecondaryButton) return;
+        Transform existing = geomancerSecondaryButton.transform.Find("FireSlashCooldownRadial");
+        fireSlashCooldownImage = existing ? existing.GetComponent<Image>() : null;
+        if (!fireSlashCooldownImage)
+        {
+            GameObject overlay = new GameObject("FireSlashCooldownRadial", typeof(RectTransform), typeof(Image));
+            overlay.transform.SetParent(geomancerSecondaryButton.transform, false);
+            RectTransform rect = overlay.GetComponent<RectTransform>();
+            rect.anchorMin = Vector2.zero;
+            rect.anchorMax = Vector2.one;
+            rect.offsetMin = Vector2.zero;
+            rect.offsetMax = Vector2.zero;
+            fireSlashCooldownImage = overlay.GetComponent<Image>();
+            fireSlashCooldownImage.sprite = circleSprite;
+            fireSlashCooldownImage.color = new Color(.015f, .025f, .06f, .78f);
+            fireSlashCooldownImage.type = Image.Type.Filled;
+            fireSlashCooldownImage.fillMethod = Image.FillMethod.Radial360;
+            fireSlashCooldownImage.fillOrigin = (int)Image.Origin360.Bottom;
+            fireSlashCooldownImage.fillClockwise = true;
+            fireSlashCooldownImage.raycastTarget = false;
+        }
+        fireSlashCooldownImage.gameObject.SetActive(false);
+    }
+
+    void UpdateFireSlashCooldownOverlay(bool unlocked, float remaining, float cooldown)
+    {
+        if (!fireSlashCooldownImage) EnsureFireSlashCooldownOverlay();
+        if (!fireSlashCooldownImage) return;
+        float fraction = unlocked && cooldown > 0f ? Mathf.Clamp01(remaining / cooldown) : 0f;
+        fireSlashCooldownImage.fillAmount = fraction;
+        fireSlashCooldownImage.gameObject.SetActive(fraction > .001f);
+    }
+
+void UpdateFireball(bool running)
     {
         if (!fireballButton || !fireballView) return;
         bool geomancerSelected = geomancerAbilities || (abilityLoadout && abilityLoadout.IsGeomancer);
@@ -2584,7 +2624,27 @@ public sealed class GameplayHud : MonoBehaviour
         fireballView.SetIcon(fireballIconOverride);
         fireballView.SetFallbackStyle(AbilityGlyphStyle.Fireball);
         fireballView.SetCompositeArtwork(hudSkin ? hudSkin.fireballButtonArtwork : null);
-        if (geomancerSecondaryGlyph) geomancerSecondaryGlyph.gameObject.SetActive(false);
+        if (!fireSlashAbility && HeroProgression.PlayerHero)
+            fireSlashAbility = HeroProgression.PlayerHero.GetComponent<FireSlashAbility>();
+        if (geomancerSecondaryButton)
+        {
+            bool unlocked = abilityLoadout && abilityLoadout.IsUnlocked(2) && fireSlashAbility;
+            float slashRemaining = fireSlashAbility ? fireSlashAbility.CooldownRemaining : 0f;
+            UpdateFireSlashCooldownOverlay(unlocked, slashRemaining, fireSlashAbility ? fireSlashAbility.cooldown : 0f);
+
+            geomancerSecondaryButton.interactable = running && unlocked && slashRemaining <= 0f;
+            Image activeIcon = geomancerSecondaryButton.transform.Find("ActiveAbilityIcon")?.GetComponent<Image>();
+            if (activeIcon && abilityLoadout && abilityLoadout.slots.Length > 1)
+                activeIcon.sprite = abilityLoadout.slots[1].icon;
+            SetLockedAbilityVisual(geomancerSecondaryButton.transform, !unlocked);
+            if (geomancerSecondaryGlyph)
+            {
+                geomancerSecondaryGlyph.SetStyle(AbilityGlyphStyle.FireSlash);
+                geomancerSecondaryGlyph.gameObject.SetActive(unlocked && (!activeIcon || !activeIcon.sprite));
+            }
+            if (futureAbilityLabels[0]) futureAbilityLabels[0].text = !unlocked ? "Lv 2" :
+                slashRemaining > 0f ? Mathf.CeilToInt(slashRemaining).ToString() : string.Empty;
+        }
         if (futureAbilityLabels[0])
         {
             futureAbilityLabels[0].rectTransform.anchoredPosition =
@@ -2725,11 +2785,19 @@ public sealed class GameplayHud : MonoBehaviour
         }
     }
 
-    void TriggerEarthSpikes()
+    void TriggerSecondaryAbility()
     {
         if (!geomancerAbilities && HeroProgression.PlayerHero)
             geomancerAbilities = HeroProgression.PlayerHero.GetComponent<GeomancerAbilityController>();
-        if (geomancerAbilities) geomancerAbilities.BeginEarthSpikes();
+        if (geomancerAbilities)
+        {
+            geomancerAbilities.BeginEarthSpikes();
+            return;
+        }
+        if (!fireSlashAbility && HeroProgression.PlayerHero)
+            fireSlashAbility = HeroProgression.PlayerHero.GetComponent<FireSlashAbility>();
+        if (!fireSlashAbility) return;
+        fireSlashAbility.TryCastFacing();
     }
 
     void TriggerAutoAttack()

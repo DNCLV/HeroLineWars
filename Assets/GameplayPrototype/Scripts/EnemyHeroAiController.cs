@@ -46,6 +46,7 @@ public sealed class EnemyHeroAiController : MonoBehaviour
     GoblinHealth health;
     HeroAbilityLoadout loadout;
     FireballAbility fireball;
+    FireSlashAbility fireSlash;
     GeomancerAbilityController geomancer;
     float nextDecision;
     float nextPurchase;
@@ -85,6 +86,7 @@ public sealed class EnemyHeroAiController : MonoBehaviour
         health = GetComponent<GoblinHealth>();
         loadout = GetComponent<HeroAbilityLoadout>();
         fireball = GetComponent<FireballAbility>();
+        fireSlash = GetComponent<FireSlashAbility>();
         geomancer = GetComponent<GeomancerAbilityController>();
         if (Progression && combat)
         {
@@ -172,7 +174,7 @@ public sealed class EnemyHeroAiController : MonoBehaviour
             bool upgraded = false;
             if (loadout)
             {
-                int[] priority = geomancer ? new[] { 2, 1 } : new[] { 1 };
+                int[] priority = geomancer ? new[] { 2, 1 } : new[] { 1, 2 };
                 foreach (int slot in priority)
                     if (loadout.TryUpgrade(slot, Progression)) { AbilityUpgrades++; upgraded = true; break; }
             }
@@ -190,7 +192,8 @@ public sealed class EnemyHeroAiController : MonoBehaviour
         if (!spawner || !spawner.lane) return;
         UnitCombatRegistry.CopyOpponents(opponents, UnitTeam.Enemy, spawner.lane);
         LaneUnitCombat best = null;
-        float radius = geomancer ? geomancer.earthSpikesRange : fireball ? fireball.abilityRange : 0f;
+        float radius = geomancer ? geomancer.earthSpikesRange :
+            Mathf.Max(fireball ? fireball.abilityRange : 0f, fireSlash ? fireSlash.aiTargetingRange : 0f);
         float areaRadius = geomancer ? 2.5f : fireball ? fireball.areaRadius : 0f;
         int nearby = 0;
         float bestScore = float.NegativeInfinity;
@@ -213,7 +216,12 @@ public sealed class EnemyHeroAiController : MonoBehaviour
             !(dangerous && geomancer))) return;
         bool cast = false;
         if (geomancer) cast = geomancer.TryCastAiAt(best.transform.position, nearby);
-        else if (fireball) cast = fireball.TryCastAt(best.transform.position);
+        else
+        {
+            if (fireSlash && nearby >= Mathf.Max(2, settings.minimumAreaTargets))
+                cast = fireSlash.TryCastAt(best.transform.position);
+            if (!cast && fireball) cast = fireball.TryCastAt(best.transform.position);
+        }
         if (cast) { AbilitiesCast++; Log($"Ability cast at {best.name}, targets in range={nearby}"); }
     }
 

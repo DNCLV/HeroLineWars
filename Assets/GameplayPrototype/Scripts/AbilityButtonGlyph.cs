@@ -1,7 +1,7 @@
 using UnityEngine;
 using UnityEngine.UI;
 
-public enum AbilityGlyphStyle { Fireball, Faultbreaker, EarthSpikes }
+public enum AbilityGlyphStyle { Fireball, Faultbreaker, EarthSpikes, FireSlash }
 
 /// <summary>Lightweight hero-specific fallback glyphs used when no imported ability icon exists.</summary>
 [RequireComponent(typeof(CanvasRenderer))]
@@ -28,6 +28,11 @@ public sealed class AbilityButtonGlyph : MaskableGraphic
         if (style == AbilityGlyphStyle.EarthSpikes)
         {
             DrawEarthSpikes(vh, rect);
+            return;
+        }
+        if (style == AbilityGlyphStyle.FireSlash)
+        {
+            DrawFireSlash(vh, rect);
             return;
         }
         Color ember = new Color(1f, .24f, .035f, 1f) * color;
@@ -59,6 +64,16 @@ public sealed class AbilityButtonGlyph : MaskableGraphic
         AddTriangle(vh, rect, new Vector2(.12f, .18f), new Vector2(.35f, .18f), new Vector2(.29f, .68f), deep, arcane, bright);
         AddTriangle(vh, rect, new Vector2(.31f, .16f), new Vector2(.62f, .16f), new Vector2(.51f, .88f), deep, arcane, bright);
         AddTriangle(vh, rect, new Vector2(.57f, .18f), new Vector2(.86f, .18f), new Vector2(.72f, .62f), deep, arcane, bright);
+    }
+
+    void DrawFireSlash(VertexHelper vh, Rect rect)
+    {
+        Color ember = new Color(1f, .32f, .06f, 1f) * color;
+        Color gold = new Color(1f, .78f, .2f, 1f) * color;
+        AddTriangle(vh, rect, new Vector2(.12f, .45f), new Vector2(.86f, .72f),
+            new Vector2(.65f, .51f), ember, gold, ember);
+        AddTriangle(vh, rect, new Vector2(.12f, .45f), new Vector2(.65f, .51f),
+            new Vector2(.32f, .29f), ember, gold, new Color(.6f, .09f, .03f) * color);
     }
 
     static void AddCircle(VertexHelper vh, Rect rect, Vector2 center, float radius,

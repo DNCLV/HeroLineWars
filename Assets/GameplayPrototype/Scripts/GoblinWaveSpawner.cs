@@ -248,6 +248,7 @@ public sealed class GoblinWaveSpawner : MonoBehaviour
         if (!progression) progression = hero.AddComponent<HeroProgression>();
         if (definition) progression.ConfigureDefinition(definition);
         progression.Configure(true);
+        if (!geomancer && !hero.GetComponent<FireSlashAbility>()) hero.AddComponent<FireSlashAbility>();
     }
 
     void SpawnHealingWell()
@@ -312,6 +313,7 @@ public sealed class GoblinWaveSpawner : MonoBehaviour
         if (!loadout) loadout = hero.AddComponent<HeroAbilityLoadout>();
         if (definition) { loadout.Configure(definition); progression.ConfigureDefinition(definition); }
         progression.Configure(false);
+        if (!geomancerHero && !hero.GetComponent<FireSlashAbility>()) hero.AddComponent<FireSlashAbility>();
         // Both heroes use the same definition-driven HP, STR and AGI formulas.
         combat.maximumHitPoints = health.MaximumHitPoints;
         combat.attackDamage = Mathf.Max(1, Mathf.RoundToInt(progression.basePhysicalDamage *

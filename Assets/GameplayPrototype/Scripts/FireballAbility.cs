@@ -10,6 +10,8 @@ public sealed class FireballAbility : MonoBehaviour
     [Min(.5f)] public float cooldown = 8f;
     [Min(.1f)] public float projectileSpeed = 10f;
     [Min(.1f)] public float projectileSize = .75f;
+    [Header("Imported VFX")]
+    [Min(.05f)] public float fireballVfxScale = .32f;
 
     HeroLaneController movement;
     Transform previewRing;
@@ -117,7 +119,8 @@ public sealed class FireballAbility : MonoBehaviour
             ? match.ScalePlayerAreaDamage(damage) : damage;
         CombatProjectile.Launch(launch, destination, projectileSpeed, projectileSize,
             areaDamage, null, areaRadius, faction ? faction.team : UnitTeam.Friendly,
-            lane, new Color(1f, .25f, .03f), transform);
+            lane, new Color(1f, .25f, .03f), transform,
+            HlwCombatVfxCatalog.Current ? HlwCombatVfxCatalog.Current.fireball : null, fireballVfxScale);
         return true;
     }
 

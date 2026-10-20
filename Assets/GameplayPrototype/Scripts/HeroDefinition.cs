@@ -1,7 +1,7 @@
 using System;
 using UnityEngine;
 
-public enum HeroAbilityKind { None, Fireball, Faultbreaker, EarthSpikes }
+public enum HeroAbilityKind { None, Fireball, Faultbreaker, EarthSpikes, FireSlash }
 
 [Serializable]
 public sealed class HeroAbilityDefinition
